@@ -29,11 +29,18 @@ import { formatDate } from 'browser/lib/date-formatter'
 import { getTodoPercentageOfCompleted } from 'browser/lib/getTodoStatus'
 import striptags from 'striptags'
 import { confirmDeleteNote } from 'browser/lib/confirmDeleteNote'
+import store from 'browser/main/store'
+import { connect } from 'react-redux'
+import HistoryButton from './HistoryButton'
 
 class MarkdownNoteDetail extends React.Component {
   constructor (props) {
     super(props)
-
+    console.log('constuctor')
+    console.log(this.props)
+    console.log(this.props.back.backStack.present)
+    console.log(this.props.note)
+    this.props.back.backStack.present = this.props.note
     this.state = {
       isMovingNote: false,
       note: Object.assign({
@@ -42,10 +49,12 @@ class MarkdownNoteDetail extends React.Component {
       }, props.note),
       isLockButtonShown: false,
       isLocked: false,
-      editorType: props.config.editor.type
+      editorType: props.config.editor.type,
+      backStack: this.props.back.backStack,
+      isBackActive: false,
+      isForwardActive: false
     }
     this.dispatchTimer = null
-
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
   }
 
@@ -54,6 +63,16 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   componentDidMount () {
+    console.log('componentDidMount')
+    this.setState({
+      backStack: this.undoable('Default')
+    })
+    this.setState({
+      note: Object.assign({}, this.state.backStack.present)
+    }, () => {
+      this.refs.content.reload()
+      if (this.refs.tags) this.refs.tags.reset()
+    })
     ee.on('topbar:togglelockbutton', this.toggleLockButton)
     ee.on('topbar:togglemodebutton', () => {
       const reversedType = this.state.editorType === 'SPLIT' ? 'EDITOR_PREVIEW' : 'SPLIT'
@@ -62,18 +81,29 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   componentWillReceiveProps (nextProps) {
+    console.log('compontent recieve props')
     if (nextProps.note.key !== this.props.note.key && !this.state.isMovingNote) {
       if (this.saveQueue != null) this.saveNow()
       this.setState({
         note: Object.assign({}, nextProps.note)
       }, () => {
         this.refs.content.reload()
+        // pk
+        this.setState({
+          backStack: this.undoable('Default')
+        })
+        // sucess note view
         if (this.refs.tags) this.refs.tags.reset()
       })
     }
   }
 
   componentWillUnmount () {
+    console.log('unmount')
+    store.dispatch({
+      type: 'BACKSTACK_UPDATE',
+      back: this.state.backStack
+    })
     ee.off('topbar:togglelockbutton', this.toggleLockButton)
     if (this.saveQueue != null) this.saveNow()
   }
@@ -85,12 +115,128 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   handleUpdateContent () {
+    console.log('handleUpdateContent')
     const { note } = this.state
     note.content = this.refs.content.value
     note.title = markdown.strip(striptags(findNoteTitle(note.content)))
     this.updateNote(note)
   }
+  // pk
+  handleBackwardButtonClick () {
+    this.setState({
+      backStack: this.undoable('BACKWARD')
+    })
+    /*
+    console.log('past')
+    console.log(this.state.backStack.past.map(x => x.title))
+    console.log('present')
+    console.log(this.state.backStack.present.title)
+    console.log('future')
+    console.log(this.state.backStack.future.map(x => x.title))
+    */
+  }
 
+  handleForwardButtonClick () {
+    this.setState({
+      backStack: this.undoable('FORWARD')
+    })
+    console.log(this.state.backStack)
+  }
+
+  undoable (action) {
+    console.log('undoable')
+    var { past, present, future } = this.state.backStack
+    /*
+    var isback = this.state.isBackActive
+    var isforward = this.state.isForwardActive
+    if (past.length) {
+      console.log('isback true')
+      this.setState({isBackActive: !isback})
+    } else {
+      console.log('isback false')
+      this.setState({isBackActive: !isback})
+    }
+    if (future.length) {
+      console.log('isforward true')
+      this.setState({isForwardActive: !isforward})
+    } else {
+      console.log('isforward false')
+      this.setState({isForwardActive: !isforward})
+    }
+    */
+    switch (action) {
+      case 'BACKWARD':
+        if (past.length) {
+          this.isBackActive = true
+          console.log('back')
+          var previous = past.pop()
+          if (previous.key === present.key) {
+            console.log('previous == present')
+            previous = past.pop()
+          }
+          const newPast = past
+          this.setState({
+            note: Object.assign({}, previous)
+          }, () => {
+            this.refs.content.reload()
+            if (this.refs.tags) this.refs.tags.reset()
+          })
+          return {
+            past: newPast,
+            present: previous,
+            future: [...future, present]
+          }
+        }
+        break
+      case 'FORWARD':
+        if (future.length) {
+          console.log('forward')
+          var next = future.pop()
+          if (next.key === present.key) {
+            console.log('next presetn same')
+            next = future.pop()
+          }
+          const newFuture = future
+          this.setState({
+            note: Object.assign({}, next)
+          }, () => {
+            this.refs.content.reload()
+            if (this.refs.tags) this.refs.tags.reset()
+          })
+          return {
+            past: [...past, present],
+            present: next,
+            future: newFuture
+          }
+        }
+        break
+      case 'Default':
+        console.log('default')
+        // (?) How do we handle other actions?
+        const newPresent = this.state.note
+
+        if (present.key === newPresent.key) {
+          console.log('present === newPresent')
+          return {
+            past: past,
+            present: present,
+            future: future
+          }
+        }
+        return {
+          past: [...past, present],
+          present: newPresent,
+          future: future
+        }
+    }
+    console.log('no change in undoable')
+    return {
+      past: past,
+      present: present,
+      future: future
+    }
+  }
+  //
   updateNote (note) {
     note.updatedAt = new Date()
     this.setState({note}, () => {
@@ -350,6 +496,18 @@ class MarkdownNoteDetail extends React.Component {
 
     const detailTopBar = <div styleName='info'>
       <div styleName='info-left'>
+        <div>
+          <HistoryButton
+            onClick={(e) => this.handleBackwardButtonClick(e)}
+            direction='left'
+            isActive={this.state.isBackActive}
+          />
+          <HistoryButton
+            onClick={(e) => this.handleForwardButtonClick(e)}
+            direction='right'
+            isActive={this.state.isForwardActive}
+          />
+        </div>
         <div styleName='info-left-top'>
           <FolderSelect styleName='info-left-top-folderSelect'
             value={this.state.note.storage + '-' + this.state.note.folder}
@@ -366,7 +524,7 @@ class MarkdownNoteDetail extends React.Component {
         />
         <TodoListPercentage percentageOfTodo={getTodoPercentageOfCompleted(note.content)} />
       </div>
-      <div styleName='info-right'>
+      <div styleName='info-right' >
         <ToggleModeButton onClick={(e) => this.handleSwitchMode(e)} editorType={editorType} />
         <StarButton
           onClick={(e) => this.handleStarButtonClick(e)}
@@ -447,4 +605,4 @@ MarkdownNoteDetail.propTypes = {
   ignorePreviewPointerEvents: PropTypes.bool
 }
 
-export default CSSModules(MarkdownNoteDetail, styles)
+export default connect(x => x, state => ({ vals: state }))(CSSModules(MarkdownNoteDetail, styles))

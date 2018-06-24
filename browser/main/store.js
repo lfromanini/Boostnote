@@ -16,8 +16,31 @@ function defaultDataMap () {
   }
 }
 
+function initBackStack () {
+  return {
+    backStack: {
+      past: [],
+      present: Object,
+      future: []
+    }
+  }
+}
+
+function back (state = initBackStack(), action) {
+  switch (action.type) {
+    case 'BACKSTACK_UPDATE':
+      console.log(action)
+      console.log(state.backStack)
+      state.backStack = action.back
+      console.log(state.backStack)
+      return state
+  }
+  return state
+}
+
 function data (state = defaultDataMap(), action) {
   switch (action.type) {
+
     case 'INIT_ALL':
       state = defaultDataMap()
 
@@ -473,6 +496,7 @@ const reducer = combineReducers({
   data,
   config,
   status,
+  back,
   routing: routerReducer
 })
 
