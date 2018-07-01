@@ -32,6 +32,7 @@ import { confirmDeleteNote } from 'browser/lib/confirmDeleteNote'
 import store from 'browser/main/store'
 import { connect } from 'react-redux'
 import HistoryButton from './HistoryButton'
+import HistoryButton2 from './HistoryButton2'
 
 class MarkdownNoteDetail extends React.Component {
   constructor (props) {
@@ -122,37 +123,59 @@ class MarkdownNoteDetail extends React.Component {
     note.title = markdown.strip(striptags(findNoteTitle(note.content)))
     this.updateNote(note)
   }
-  // pk
+
   historyChecks () {
     console.log('historyChecks')
     let back = this.state.backStack
-    if (back.past.length > 7 ){
-      back.past.splice(1)
+    if (back.past.length > 7) {
+      back.past.splice(0, 1)
       this.setState({
         backStack: back
+      }, () => {
+        this.save()
       })
     }
-    if (back.future.length > 7 ){
-      back.future.splice(1)
+    if (back.future.length > 7) {
+      back.future.splice(0, 1)
       this.setState({
         backStack: back
+      }, () => {
+        this.save()
       })
     }
-    //set active
+    // set active
     if (back.past.length) {
       console.log('isback true')
-      if (!this.isBackActive){
-        this.setState({isBackActive: true})
+      if (!this.isBackActive) {
+        this.setState({isBackActive: true}, () => {
+          this.save()
+        })
+      }
+    } else {
+      console.log('isback false')
+      if (this.isBackActive) {
+        this.setState({isBackActive: false}, () => {
+          this.save()
+        })
       }
     }
-    if (backfuture.length) {
+    if (back.future.length) {
       console.log('isforward true')
-      if (!this.isForwardActive){
-        this.setState({isForwardActive: true})
+      if (!this.isForwardActive) {
+        this.setState({isForwardActive: true}, () => {
+          this.save()
+        })
+      }
+    } else {
+      console.log('isback false')
+      if (this.isForwardActive) {
+        this.setState({isForwardActive: false}, () => {
+          this.save()
+        })
       }
     }
   }
-  
+
   handleBackwardButtonClick () {
     this.setState({
       backStack: this.undoable('BACKWARD')
@@ -168,7 +191,6 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   handleForwardButtonClick () {
-
     this.setState({
       backStack: this.undoable('FORWARD')
     })
@@ -176,14 +198,13 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   undoable (action) {
-    //this.historyChecks()
+    this.historyChecks()
     var { past, present, future } = this.state.backStack
     switch (action) {
       case 'BACKWARD':
         if (past.length) {
-          this.isBackActive = true
           console.log('back')
-          //Slice for size
+          // Slice for size
           if (past.length > 7) {
             console.log(past.length)
             past = past.splice(1)
@@ -449,7 +470,7 @@ class MarkdownNoteDetail extends React.Component {
     if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
   }
 
-  handleHistMenuClick (e,note) {
+  handleHistMenuClick (e, note) {
     console.log('handleHistMenuClick')
     console.log(note)
     this.setState({
@@ -545,26 +566,29 @@ class MarkdownNoteDetail extends React.Component {
             styleName='control-historyButton'
             onClick={(e) => this.handleHistButtonClick(e)}><img styleName='icon'
             src= {this.state.backStack.past.length || this.state.backStack.future.length
-            ? '../resources/icon/history-light.svg'
+            ? '../resources/icon/history-green.svg'
             : '../resources/icon/history-dark.svg'}
           /></button>
           <div className='historymenu' style={{display: 'none'}} styleName='control-historyMenu'>
             <div>
               <ul>
-                {...this.state.history(x => 
-                <p styleName='control-menuButton'
-                onClick={(e) => this.handleHistMenuClick(e,x)}>{x.title}</p>)}
-                {this.state.backStack.future.map(x => 
-                <li>{x.title}</li>)}
+                {this.state.backStack.past.map(x =>
+                  <div><p styleName='control-menuButton'
+                    onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)}
+                {this.state.backStack.future.map(x =>
+                  <div><p styleName='control-menuButton'
+                    onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)}
               </ul>
             </div>
           </div>
           <HistoryButton
+            ref='hist1'
             onClick={(e) => this.handleBackwardButtonClick(e)}
             direction='left'
             isActive={this.state.isBackActive}
           />
-          <HistoryButton
+          <HistoryButton2
+            ref='hist2'
             onClick={(e) => this.handleForwardButtonClick(e)}
             direction='right'
             isActive={this.state.isForwardActive}

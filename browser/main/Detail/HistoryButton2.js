@@ -1,11 +1,11 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import CSSModules from 'browser/lib/CSSModules'
-import styles from './HistoryButton.styl'
+import styles from './HistoryButton2.styl'
 import _ from 'lodash'
 import i18n from 'browser/lib/i18n'
 
-class HistoryButton extends React.Component {
+class HistoryButton2 extends React.Component {
   constructor (props) {
     super(props)
 
@@ -17,8 +17,8 @@ class HistoryButton extends React.Component {
   render () {
     const { direction } = this.props
     return (
-      <button className='HistoryButton'
-        styleName='control-historyButton'
+      <button className='HistoryButton2'
+        styleName='control-historyButton2'
         onClick={this.props.onClick}>
         <img styleName='icon'
           src={this.props.isActive
@@ -32,10 +32,10 @@ class HistoryButton extends React.Component {
   }
 }
 
-HistoryButton.propTypes = {
+HistoryButton2.propTypes = {
   onClick: PropTypes.func.isRequired,
   isActive: PropTypes.bool,
   direction: PropTypes.string
 }
 
-export default CSSModules(HistoryButton, styles)
+export default CSSModules(HistoryButton2, styles)
