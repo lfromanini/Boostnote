@@ -21,7 +21,6 @@ class HistoryMenu extends React.Component {
       <button className='historyMenu'
         styleName='control-HistoryMenu'
         onClick={this.props.onClick}>
-        
         <span styleName='tooltip'>{i18n.__('History')}</span>
       </button>
     )

@@ -33,15 +33,12 @@ import store from 'browser/main/store'
 import { connect } from 'react-redux'
 import HistoryButton from './HistoryButton'
 import HistoryButton2 from './HistoryButton2'
+import NoteList from '../NoteList'
 
 class MarkdownNoteDetail extends React.Component {
   constructor (props) {
     super(props)
-    console.log('constuctor')
-    console.log(this.props)
-    console.log(this.props.back.backStack.present)
-    console.log(this.props.note)
-    this.props.back.backStack.present = this.props.note
+    this.props.back.backStack.present = {title: this.props.note.title, hash: this.props.note.key}
     this.state = {
       isMovingNote: false,
       note: Object.assign({
@@ -54,7 +51,6 @@ class MarkdownNoteDetail extends React.Component {
       backStack: this.props.back.backStack,
       isBackActive: false,
       isForwardActive: false,
-      history: new Set()
     }
     this.dispatchTimer = null
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
@@ -68,12 +64,6 @@ class MarkdownNoteDetail extends React.Component {
     console.log('componentDidMount')
     this.setState({
       backStack: this.undoable('Default')
-    })
-    this.setState({
-      note: Object.assign({}, this.state.backStack.present)
-    }, () => {
-      this.refs.content.reload()
-      if (this.refs.tags) this.refs.tags.reset()
     })
     ee.on('topbar:togglelockbutton', this.toggleLockButton)
     ee.on('topbar:togglemodebutton', () => {
@@ -90,18 +80,15 @@ class MarkdownNoteDetail extends React.Component {
         note: Object.assign({}, nextProps.note)
       }, () => {
         this.refs.content.reload()
-        // pk
         this.setState({
           backStack: this.undoable('Default')
         })
-        // sucess note view
         if (this.refs.tags) this.refs.tags.reset()
       })
     }
   }
 
   componentWillUnmount () {
-    console.log('unmount')
     store.dispatch({
       type: 'BACKSTACK_UPDATE',
       back: this.state.backStack
@@ -125,7 +112,6 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   historyChecks () {
-    console.log('historyChecks')
     let back = this.state.backStack
     if (back.past.length > 7) {
       back.past.splice(0, 1)
@@ -167,7 +153,7 @@ class MarkdownNoteDetail extends React.Component {
         })
       }
     } else {
-      console.log('isback false')
+      console.log('isforward false')
       if (this.isForwardActive) {
         this.setState({isForwardActive: false}, () => {
           this.save()
@@ -180,21 +166,12 @@ class MarkdownNoteDetail extends React.Component {
     this.setState({
       backStack: this.undoable('BACKWARD')
     })
-    /*
-    console.log('past')
-    console.log(this.state.backStack.past.map(x => x.title))
-    console.log('present')
-    console.log(this.state.backStack.present.title)
-    console.log('future')
-    console.log(this.state.backStack.future.map(x => x.title))
-    */
   }
 
   handleForwardButtonClick () {
     this.setState({
       backStack: this.undoable('FORWARD')
     })
-    console.log(this.state.backStack)
   }
 
   undoable (action) {
@@ -203,25 +180,12 @@ class MarkdownNoteDetail extends React.Component {
     switch (action) {
       case 'BACKWARD':
         if (past.length) {
-          console.log('back')
-          // Slice for size
-          if (past.length > 7) {
-            console.log(past.length)
-            past = past.splice(1)
-            console.log(past)
-          }
           var previous = past.pop()
-          if (previous.key === present.key) {
-            console.log('previous == present')
+          if (previous.hash === present.hash) {
             previous = past.pop()
           }
           const newPast = past
-          this.setState({
-            note: Object.assign({}, previous)
-          }, () => {
-            this.refs.content.reload()
-            if (this.refs.tags) this.refs.tags.reset()
-          })
+          ee.emit('list:jump', previous.hash)
           return {
             past: newPast,
             present: previous,
@@ -231,19 +195,12 @@ class MarkdownNoteDetail extends React.Component {
         break
       case 'FORWARD':
         if (future.length) {
-          console.log('forward')
           var next = future.pop()
-          if (next.key === present.key) {
-            console.log('next presetn same')
+          if (next.hash === present.hash) {
             next = future.pop()
           }
           const newFuture = future
-          this.setState({
-            note: Object.assign({}, next)
-          }, () => {
-            this.refs.content.reload()
-            if (this.refs.tags) this.refs.tags.reset()
-          })
+          ee.emit('list:jump', next.hash)
           return {
             past: [...past, present],
             present: next,
@@ -252,12 +209,8 @@ class MarkdownNoteDetail extends React.Component {
         }
         break
       case 'Default':
-        console.log('default')
-        // (?) How do we handle other actions?
-        const newPresent = this.state.note
-
-        if (present.key === newPresent.key) {
-          console.log('present === newPresent')
+        const newPresent = {title: this.state.note.title, hash: this.state.note.key}
+        if (present.hash === newPresent.hash) {
           return {
             past: past,
             present: newPresent,
@@ -270,14 +223,13 @@ class MarkdownNoteDetail extends React.Component {
           future: future
         }
     }
-    console.log('no change in undoable')
     return {
       past: past,
       present: present,
       future: future
     }
   }
-  //
+
   updateNote (note) {
     note.updatedAt = new Date()
     this.setState({note}, () => {
@@ -459,26 +411,12 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   handleHistButtonClick (e) {
-    let {past, future} = this.state.backStack
-    let unique = (new Set(past))
-    this.setState({
-      history: unique
-    })
-    console.log('HistButtonClick')
-    console.log(...this.state.history)
     const historyMenu = document.querySelector('.historymenu')
     if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
   }
 
   handleHistMenuClick (e, note) {
-    console.log('handleHistMenuClick')
-    console.log(note)
-    this.setState({
-      note: Object.assign({}, note)
-    }, () => {
-      this.refs.content.reload()
-      if (this.refs.tags) this.refs.tags.reset()
-    })
+    ee.emit('list:jump', note.hash)
   }
 
   print (e) {
@@ -565,7 +503,7 @@ class MarkdownNoteDetail extends React.Component {
             className='historyButton'
             styleName='control-historyButton'
             onClick={(e) => this.handleHistButtonClick(e)}><img styleName='icon'
-            src= {this.state.backStack.past.length || this.state.backStack.future.length
+              src={this.state.backStack.past.length || this.state.backStack.future.length
             ? '../resources/icon/history-green.svg'
             : '../resources/icon/history-dark.svg'}
           /></button>
@@ -574,21 +512,21 @@ class MarkdownNoteDetail extends React.Component {
               <ul>
                 {this.state.backStack.past.map(x =>
                   <div><p styleName='control-menuButton'
+                    key={x.title}
                     onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)}
                 {this.state.backStack.future.map(x =>
                   <div><p styleName='control-menuButton'
+                    key={x.title}
                     onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)}
               </ul>
             </div>
           </div>
           <HistoryButton
-            ref='hist1'
             onClick={(e) => this.handleBackwardButtonClick(e)}
             direction='left'
             isActive={this.state.isBackActive}
           />
-          <HistoryButton2
-            ref='hist2'
+          <HistoryButton
             onClick={(e) => this.handleForwardButtonClick(e)}
             direction='right'
             isActive={this.state.isForwardActive}
