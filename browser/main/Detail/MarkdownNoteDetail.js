@@ -61,7 +61,6 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   componentDidMount () {
-    console.log('componentDidMount')
     this.setState({
       backStack: this.undoable('Default')
     })
@@ -73,7 +72,6 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   componentWillReceiveProps (nextProps) {
-    console.log('compontent recieve props')
     if (nextProps.note.key !== this.props.note.key && !this.state.isMovingNote) {
       if (this.saveQueue != null) this.saveNow()
       this.setState({
@@ -104,7 +102,6 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   handleUpdateContent () {
-    console.log('handleUpdateContent')
     const { note } = this.state
     note.content = this.refs.content.value
     note.title = markdown.strip(striptags(findNoteTitle(note.content)))
@@ -129,7 +126,6 @@ class MarkdownNoteDetail extends React.Component {
         this.save()
       })
     }
-    // set active
     if (back.past.length) {
       console.log('isback true')
       if (!this.isBackActive) {

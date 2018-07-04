@@ -29,10 +29,7 @@ function initBackStack () {
 function back (state = initBackStack(), action) {
   switch (action.type) {
     case 'BACKSTACK_UPDATE':
-      console.log(action)
-      console.log(state.backStack)
       state.backStack = action.back
-      console.log(state.backStack)
       return state
   }
   return state
