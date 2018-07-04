@@ -547,15 +547,13 @@ class MarkdownNoteDetail extends React.Component {
       </div>
       <div styleName='info-right' >
         <HistoryButton
-              ref = 'hist1'
               onClick={(e) => this.handleBackwardButtonClick(e)}
-              svg_src = {this.state.isForwardActive
+              svg_src = {this.state.isBackActive
                 ? '../resources/icon/left-green.svg'
                 : '../resources/icon/left-dark.svg'}
             />
         <HistoryButton
-              ref = 'hist2'
-              onClick={(e) => this.handleForwardButtonClick.bind(e)}
+              onClick={(e) => this.handleForwardButtonClick(e)}
               svg_src = {this.state.isForwardActive
                 ? '../resources/icon/right-green.svg'
                 : '../resources/icon/right-dark.svg'}
@@ -640,4 +638,4 @@ MarkdownNoteDetail.propTypes = {
   ignorePreviewPointerEvents: PropTypes.bool
 }
 
-export default (CSSModules(MarkdownNoteDetail, styles))
+export default connect(x => x, state => ({ vals: state }))(CSSModules(MarkdownNoteDetail, styles)) 
