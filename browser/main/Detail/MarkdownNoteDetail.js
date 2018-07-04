@@ -32,7 +32,6 @@ import { confirmDeleteNote } from 'browser/lib/confirmDeleteNote'
 import store from 'browser/main/store'
 import { connect } from 'react-redux'
 import HistoryButton from './HistoryButton'
-import HistoryButton2 from './HistoryButton2'
 import NoteList from '../NoteList'
 
 class MarkdownNoteDetail extends React.Component {
