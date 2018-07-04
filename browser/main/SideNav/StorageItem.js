@@ -87,7 +87,6 @@ class StorageItem extends React.Component {
   }
 
   handleFolderButtonClick (folderKey) {
-    console.log('handleFolderButtonClick')
     return (e) => {
       const { storage } = this.props
       hashHistory.push('/storages/' + storage.key + '/folders/' + folderKey)
