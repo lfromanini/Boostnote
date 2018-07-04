@@ -510,6 +510,13 @@ class MarkdownNoteDetail extends React.Component {
           <div className='historymenu' style={{display: 'none'}} styleName='control-historyMenu'>
             <div>
               <ul>
+              {(() => {
+                if(!this.state.backStack.past.length  && !this.state.backStack.future.length){
+                  return (
+                    <div><p>No History</p></div>
+                  )
+                }
+              })()}
                 {this.state.backStack.past.map(x =>
                   <div><p styleName='control-menuButton'
                     key={x.title}
@@ -521,16 +528,6 @@ class MarkdownNoteDetail extends React.Component {
               </ul>
             </div>
           </div>
-          <HistoryButton
-            onClick={(e) => this.handleBackwardButtonClick(e)}
-            direction='left'
-            isActive={this.state.isBackActive}
-          />
-          <HistoryButton
-            onClick={(e) => this.handleForwardButtonClick(e)}
-            direction='right'
-            isActive={this.state.isForwardActive}
-          />
         </div>
         <div styleName='info-left-top'>
           <FolderSelect styleName='info-left-top-folderSelect'
@@ -549,6 +546,18 @@ class MarkdownNoteDetail extends React.Component {
         <TodoListPercentage percentageOfTodo={getTodoPercentageOfCompleted(note.content)} />
       </div>
       <div styleName='info-right' >
+        <HistoryButton
+              onClick={(e) => this.handleBackwardButtonClick(e)}
+              svg_src = {this.state.isForwardActive
+                ? '../resources/icon/left-green.svg'
+                : '../resources/icon/left-dark.svg'}
+            />
+        <HistoryButton
+              onClick={(e) => this.handleForwardButtonClick(e)}
+              svg_src = {this.state.isBackActive
+                ? '../resources/icon/right-green.svg'
+                : '../resources/icon/right-dark.svg'}
+        />
         <ToggleModeButton onClick={(e) => this.handleSwitchMode(e)} editorType={editorType} />
         <StarButton
           onClick={(e) => this.handleStarButtonClick(e)}
@@ -629,4 +638,4 @@ MarkdownNoteDetail.propTypes = {
   ignorePreviewPointerEvents: PropTypes.bool
 }
 
-export default connect(x => x, state => ({ vals: state }))(CSSModules(MarkdownNoteDetail, styles))
+export default connect(x => x, state => ({ vals: state }))(CSSModules(MarkdownNoteDetail, styles)) 

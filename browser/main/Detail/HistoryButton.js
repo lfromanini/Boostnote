@@ -15,16 +15,12 @@ class HistoryButton extends React.Component {
   }
 
   render () {
-    const { direction } = this.props
     return (
       <button className='HistoryButton'
         styleName='control-historyButton'
         onClick={this.props.onClick}>
         <img styleName='icon'
-          src={this.props.isActive
-            ? '../resources/icon/' + direction + '-green.svg'
-            : '../resources/icon/' + direction + '-dark.svg'
-          }
+          src = {this.props.svg_src}
         />
         <span styleName='tooltip'>{i18n.__('History')}</span>
       </button>
@@ -34,8 +30,7 @@ class HistoryButton extends React.Component {
 
 HistoryButton.propTypes = {
   onClick: PropTypes.func.isRequired,
-  isActive: PropTypes.bool,
-  direction: PropTypes.string
+  svg_src: PropTypes.string
 }
 
 export default CSSModules(HistoryButton, styles)
