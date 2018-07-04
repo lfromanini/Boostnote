@@ -37,7 +37,7 @@ import NoteList from '../NoteList'
 class MarkdownNoteDetail extends React.Component {
   constructor (props) {
     super(props)
-    this.props.back.backStack.present = {title: this.props.note.title, hash: this.props.note.key}
+    this.props.data.backStacks.present = {title: this.props.note.title, hash: this.props.note.key}
     this.state = {
       isMovingNote: false,
       note: Object.assign({
@@ -47,9 +47,10 @@ class MarkdownNoteDetail extends React.Component {
       isLockButtonShown: false,
       isLocked: false,
       editorType: props.config.editor.type,
-      backStack: this.props.back.backStack,
+      backStack: this.props.data.backStacks,
       isBackActive: false,
-      isForwardActive: false
+      isForwardActive: false,
+      history: []
     }
     this.dispatchTimer = null
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
@@ -88,7 +89,7 @@ class MarkdownNoteDetail extends React.Component {
   componentWillUnmount () {
     store.dispatch({
       type: 'BACKSTACK_UPDATE',
-      back: this.state.backStack
+      backStacks: this.state.backStack
     })
     ee.off('topbar:togglelockbutton', this.toggleLockButton)
     if (this.saveQueue != null) this.saveNow()
@@ -109,6 +110,17 @@ class MarkdownNoteDetail extends React.Component {
 
   historyChecks () {
     let back = this.state.backStack
+    var unique = []
+    var history = []
+    back.past.forEach(function (obj) {
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
+    })
+    back.future.forEach(function (obj) {
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
+    })
+    this.setState({
+      history: history
+    })
     if (back.past.length > 7) {
       back.past.splice(0, 1)
       this.setState({
@@ -126,14 +138,12 @@ class MarkdownNoteDetail extends React.Component {
       })
     }
     if (back.past.length) {
-      console.log('isback true')
       if (!this.isBackActive) {
         this.setState({isBackActive: true}, () => {
           this.save()
         })
       }
     } else {
-      console.log('isback false')
       if (this.isBackActive) {
         this.setState({isBackActive: false}, () => {
           this.save()
@@ -141,14 +151,12 @@ class MarkdownNoteDetail extends React.Component {
       }
     }
     if (back.future.length) {
-      console.log('isforward true')
       if (!this.isForwardActive) {
         this.setState({isForwardActive: true}, () => {
           this.save()
         })
       }
     } else {
-      console.log('isforward false')
       if (this.isForwardActive) {
         this.setState({isForwardActive: false}, () => {
           this.save()
@@ -354,7 +362,7 @@ class MarkdownNoteDetail extends React.Component {
     }
   }
 
-  handleUndoButtonClick (e) {
+  handleRestoreButtonClick (e) {
     const { note } = this.state
 
     note.isTrashed = false
@@ -411,6 +419,8 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   handleHistMenuClick (e, note) {
+    const historyMenu = document.querySelector('.historymenu')
+    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
     ee.emit('list:jump', note.hash)
   }
 
@@ -453,6 +463,37 @@ class MarkdownNoteDetail extends React.Component {
     }
   }
 
+  renderHistory () {
+    return <div>
+      <button
+        className='historyButton'
+        styleName='control-historyButton'
+        onClick={(e) => this.handleHistButtonClick(e)}>
+        <img styleName='icon'
+          src={this.state.backStack.past.length || this.state.backStack.future.length
+        ? '../resources/icon/history-green.svg' : '../resources/icon/history-dark.svg'}
+      /></button>
+      <div className='historymenu' style={{display: 'none'}} styleName='control-historyMenu'>
+        <div>
+          {(() => {
+            if (!this.state.backStack.past.length && !this.state.backStack.future.length) {
+              return (
+                <div><p>No History</p></div>
+              )
+            }
+            else {
+              return (
+                this.state.history.map(x =>
+                  <div key={x.title}><p styleName='control-menuButton'
+                    onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)
+              )
+            }
+          })()}
+        </div>
+      </div>
+    </div>
+  }
+
   render () {
     const { data, location } = this.props
     const { note, editorType } = this.state
@@ -469,10 +510,9 @@ class MarkdownNoteDetail extends React.Component {
       })
     })
     const currentOption = options.filter((option) => option.storage.key === storageKey && option.folder.key === folderKey)[0]
-
     const trashTopBar = <div styleName='info'>
       <div styleName='info-left'>
-        <RestoreButton onClick={(e) => this.handleUndoButtonClick(e)} />
+        <RestoreButton onClick={(e) => this.handleRestoreButtonClick(e)} />
       </div>
       <div styleName='info-right'>
         <PermanentDeleteButton onClick={(e) => this.handleTrashButtonClick(e)} />
@@ -490,38 +530,9 @@ class MarkdownNoteDetail extends React.Component {
         />
       </div>
     </div>
-
     const detailTopBar = <div styleName='info'>
       <div styleName='info-left'>
-        <div>
-          <button
-            className='historyButton'
-            styleName='control-historyButton'
-            onClick={(e) => this.handleHistButtonClick(e)}><img styleName='icon'
-              src={this.state.backStack.past.length || this.state.backStack.future.length
-            ? '../resources/icon/history-green.svg'
-            : '../resources/icon/history-dark.svg'}
-          /></button>
-          <div className='historymenu' style={{display: 'none'}} styleName='control-historyMenu'>
-            <div>
-              <ul>
-                {(() => {
-                  if (!this.state.backStack.past.length && !this.state.backStack.future.length) {
-                    return (
-                      <div><p>No History</p></div>
-                    )
-                  }
-                })()}
-                {this.state.backStack.past.map(x =>
-                  <div key={x.title}><p styleName='control-menuButton'
-                    onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)}
-                {this.state.backStack.future.map(x =>
-                  <div key={x.title}><p styleName='control-menuButton'
-                    onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)}
-              </ul>
-            </div>
-          </div>
-        </div>
+        {this.renderHistory()}
         <div styleName='info-left-top'>
           <FolderSelect styleName='info-left-top-folderSelect'
             value={this.state.note.storage + '-' + this.state.note.folder}
@@ -530,7 +541,6 @@ class MarkdownNoteDetail extends React.Component {
             onChange={(e) => this.handleFolderChange(e)}
           />
         </div>
-
         <TagSelect
           ref='tags'
           value={this.state.note.tags}
@@ -631,4 +641,4 @@ MarkdownNoteDetail.propTypes = {
   ignorePreviewPointerEvents: PropTypes.bool
 }
 
-export default connect(x => x, state => ({ vals: state }))(CSSModules(MarkdownNoteDetail, styles))
+export default CSSModules(MarkdownNoteDetail, styles)

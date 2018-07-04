@@ -12,35 +12,20 @@ function defaultDataMap () {
     storageNoteMap: new Map(),
     folderNoteMap: new Map(),
     tagNoteMap: new Map(),
-    trashedSet: new Set()
+    trashedSet: new Set(),
+    backStacks: new Map()
   }
-}
-
-function initBackStack () {
-  return {
-    backStack: {
-      past: [],
-      present: Object,
-      future: []
-    }
-  }
-}
-
-function back (state = initBackStack(), action) {
-  switch (action.type) {
-    case 'BACKSTACK_UPDATE':
-      state.backStack = action.back
-      return state
-  }
-  return state
 }
 
 function data (state = defaultDataMap(), action) {
   switch (action.type) {
-
     case 'INIT_ALL':
       state = defaultDataMap()
-
+      state.backStacks = {
+        past: [],
+        present: Object,
+        future: []
+      }
       action.storages.forEach((storage) => {
         state.storageMap.set(storage.key, storage)
       })
@@ -380,6 +365,9 @@ function data (state = defaultDataMap(), action) {
       state.storageMap = new Map(state.storageMap)
       state.storageMap.set(action.storage.key, action.storage)
       return state
+    case 'BACKSTACK_UPDATE':
+      state.backStacks = action.backStacks
+      return state
   }
   return state
 }
@@ -493,7 +481,6 @@ const reducer = combineReducers({
   data,
   config,
   status,
-  back,
   routing: routerReducer
 })
 
