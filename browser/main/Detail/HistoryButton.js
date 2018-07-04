@@ -20,7 +20,7 @@ class HistoryButton extends React.Component {
         styleName='control-historyButton'
         onClick={this.props.onClick}>
         <img styleName='icon'
-          src = {this.props.svg_src}
+          src={this.props.svg_src}
         />
         <span styleName='tooltip'>{i18n.__('History')}</span>
       </button>

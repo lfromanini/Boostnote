@@ -49,7 +49,7 @@ class MarkdownNoteDetail extends React.Component {
       editorType: props.config.editor.type,
       backStack: this.props.back.backStack,
       isBackActive: false,
-      isForwardActive: false,
+      isForwardActive: false
     }
     this.dispatchTimer = null
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
@@ -505,20 +505,18 @@ class MarkdownNoteDetail extends React.Component {
           <div className='historymenu' style={{display: 'none'}} styleName='control-historyMenu'>
             <div>
               <ul>
-              {(() => {
-                if(!this.state.backStack.past.length  && !this.state.backStack.future.length){
-                  return (
-                    <div><p>No History</p></div>
-                  )
-                }
-              })()}
+                {(() => {
+                  if (!this.state.backStack.past.length && !this.state.backStack.future.length) {
+                    return (
+                      <div><p>No History</p></div>
+                    )
+                  }
+                })()}
                 {this.state.backStack.past.map(x =>
-                  <div><p styleName='control-menuButton'
-                    key={x.title}
+                  <div key={x.title}><p styleName='control-menuButton'
                     onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)}
                 {this.state.backStack.future.map(x =>
-                  <div><p styleName='control-menuButton'
-                    key={x.title}
+                  <div key={x.title}><p styleName='control-menuButton'
                     onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)}
               </ul>
             </div>
@@ -542,14 +540,14 @@ class MarkdownNoteDetail extends React.Component {
       </div>
       <div styleName='info-right' >
         <HistoryButton
-              onClick={(e) => this.handleBackwardButtonClick(e)}
-              svg_src = {this.state.isBackActive
-                ? '../resources/icon/left-green.svg'
-                : '../resources/icon/left-dark.svg'}
-            />
+          onClick={(e) => this.handleBackwardButtonClick(e)}
+          svg_src={this.state.isBackActive
+              ? '../resources/icon/left-green.svg'
+              : '../resources/icon/left-dark.svg'}
+          />
         <HistoryButton
-              onClick={(e) => this.handleForwardButtonClick(e)}
-              svg_src = {this.state.isForwardActive
+          onClick={(e) => this.handleForwardButtonClick(e)}
+          svg_src={this.state.isForwardActive
                 ? '../resources/icon/right-green.svg'
                 : '../resources/icon/right-dark.svg'}
         />
@@ -633,4 +631,4 @@ MarkdownNoteDetail.propTypes = {
   ignorePreviewPointerEvents: PropTypes.bool
 }
 
-export default connect(x => x, state => ({ vals: state }))(CSSModules(MarkdownNoteDetail, styles)) 
+export default connect(x => x, state => ({ vals: state }))(CSSModules(MarkdownNoteDetail, styles))
