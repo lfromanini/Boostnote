@@ -36,15 +36,7 @@ const consts = {
     'Violet Eggplant'
   ],
   THEMES: ['default'].concat(themes),
-  SNIPPET_FILE: snippetFile,
-  DEFAULT_EDITOR_FONT_FAMILY: [
-    'Monaco',
-    'Menlo',
-    'Ubuntu Mono',
-    'Consolas',
-    'source-code-pro',
-    'monospace'
-  ]
+  SNIPPET_FILE: snippetFile
 }
 
 module.exports = consts

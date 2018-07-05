@@ -4,11 +4,10 @@ import CSSModules from 'browser/lib/CSSModules'
 import styles from './StatusBar.styl'
 import ZoomManager from 'browser/main/lib/ZoomManager'
 import i18n from 'browser/lib/i18n'
-import context from 'browser/lib/context'
 
 const electron = require('electron')
 const { remote, ipcRenderer } = electron
-const { dialog } = remote
+const { Menu, MenuItem, dialog } = remote
 
 const zoomOptions = [0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
 
@@ -27,16 +26,16 @@ class StatusBar extends React.Component {
   }
 
   handleZoomButtonClick (e) {
-    const templates = []
+    const menu = new Menu()
 
     zoomOptions.forEach((zoom) => {
-      templates.push({
+      menu.append(new MenuItem({
         label: Math.floor(zoom * 100) + '%',
         click: () => this.handleZoomMenuItemClick(zoom)
-      })
+      }))
     })
 
-    context.popup(templates)
+    menu.popup(remote.getCurrentWindow())
   }
 
   handleZoomMenuItemClick (zoomFactor) {
