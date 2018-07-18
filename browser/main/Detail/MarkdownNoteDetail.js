@@ -430,6 +430,7 @@ class MarkdownNoteDetail extends React.Component {
 
   handleSwitchMode (type) {
     this.setState({ editorType: type }, () => {
+      this.focus()
       const newConfig = Object.assign({}, this.props.config)
       newConfig.editor.type = type
       ConfigManager.set(newConfig)
@@ -480,8 +481,7 @@ class MarkdownNoteDetail extends React.Component {
               return (
                 <div><p>No History</p></div>
               )
-            }
-            else {
+            } else {
               return (
                 this.state.history.map(x =>
                   <div key={x.title}><p styleName='control-menuButton'
