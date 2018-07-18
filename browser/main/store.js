@@ -372,9 +372,9 @@ function data (state = defaultDataMap(), action) {
       state.storageMap.set(action.storage.key, action.storage)
       return state
     case 'BACKSTACK_UPDATE':
-        state = Object.assign({}, state)
-        state.backStacks = action.backStacks
-        return state
+      state = Object.assign({}, state)
+      state.backStacks = action.backStacks
+      return state
   }
   return state
 }
