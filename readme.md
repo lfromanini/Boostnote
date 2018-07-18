@@ -27,7 +27,7 @@ Any issues on Boostnote can be funded by anyone and that money will be distribut
 ## Community
 - [Facebook Group](https://www.facebook.com/groups/boostnote/)
 - [Twitter](https://twitter.com/boostnoteapp)
-- [Slack Group](https://join.slack.com/t/boostnote-group/shared_invite/enQtMzkxOTk4ODkyNzc0LThkNmMzY2VlZjVhYTNiYjE5YjQyZGVjNTJlYTY1OGMyZTFjNGU5YTUyYjUzOWZhYTU4OTVlNDYyNDFjYWMzNDM)
+- [Slack Group](https://join.slack.com/t/boostnote-group/shared_invite/enQtMzcwNDU3NDU3ODI0LTU1ZDgwZDNiZTNmN2RhOTY4OTM5ODY0ODUzMTRiNmQ0ZDMzZDRiYzg2YmQ5ZDYzZTQxYjMxYzBlNTM4NjcyYjM)
 - [Blog](https://boostlog.io/tags/boostnote)
 - [Reddit](https://www.reddit.com/r/Boostnote/)
 

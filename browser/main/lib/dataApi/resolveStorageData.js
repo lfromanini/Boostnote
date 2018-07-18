@@ -8,8 +8,7 @@ function resolveStorageData (storageCache) {
     key: storageCache.key,
     name: storageCache.name,
     type: storageCache.type,
-    path: storageCache.path,
-    isOpen: storageCache.isOpen
+    path: storageCache.path
   }
 
   const boostnoteJSONPath = path.join(storageCache.path, 'boostnote.json')

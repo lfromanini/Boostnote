@@ -270,8 +270,8 @@ it('should test that getAbsolutePathsOfAttachmentsInContent returns all absolute
     '    </body>\n' +
     '</html>'
   const actual = systemUnderTest.getAbsolutePathsOfAttachmentsInContent(testInput, dummyStoragePath)
-  const expected = [dummyStoragePath + path.sep + systemUnderTest.DESTINATION_FOLDER + path.sep + '9c9c4ba3-bc1e-441f-9866-c1e9a806e31c' + path.sep + '0.6r4zdgc22xp.png',
-    dummyStoragePath + path.sep + systemUnderTest.DESTINATION_FOLDER + path.sep + '9c9c4ba3-bc1e-441f-9866-c1e9a806e31c' + path.sep + '0.q2i4iw0fyx.pdf',
+  const expected = [dummyStoragePath + path.sep + systemUnderTest.DESTINATION_FOLDER + path.sep + '9c9c4ba3-bc1e-441f-9866-c1e9a806e31c' + path.sep + '0.6r4zdgc22xp',
+    dummyStoragePath + path.sep + systemUnderTest.DESTINATION_FOLDER + path.sep + '9c9c4ba3-bc1e-441f-9866-c1e9a806e31c' + path.sep + '0.q2i4iw0fyx',
     dummyStoragePath + path.sep + systemUnderTest.DESTINATION_FOLDER + path.sep + '9c9c4ba3-bc1e-441f-9866-c1e9a806e31c' + path.sep + 'd6c5ee92.jpg']
   expect(actual).toEqual(expect.arrayContaining(expected))
 })
