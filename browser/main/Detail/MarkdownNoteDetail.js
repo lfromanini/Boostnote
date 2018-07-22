@@ -124,20 +124,20 @@ class MarkdownNoteDetail extends React.Component {
       })
     }
     if (back.past.length) {
-      if (!this.isBackActive) {
+      if (!this.state.isBackActive) {
         this.setState({isBackActive: true}, () => {
           this.save()
         })
       }
     } else {
-      if (this.isBackActive) {
+      if (this.state.isBackActive) {
         this.setState({isBackActive: false}, () => {
           this.save()
         })
       }
     }
     if (back.future.length) {
-      if (!this.isForwardActive) {
+      if (!this.state.isForwardActive) {
         this.setState({isForwardActive: true}, () => {
           this.save()
         })
