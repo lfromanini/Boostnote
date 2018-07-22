@@ -13,7 +13,11 @@ function defaultDataMap () {
     folderNoteMap: new Map(),
     tagNoteMap: new Map(),
     trashedSet: new Set(),
-    backStacks: new Map()
+    backStacks: {
+      past: [],
+      present: Object(),
+      future: []
+    }
   }
 }
 
@@ -21,11 +25,7 @@ function data (state = defaultDataMap(), action) {
   switch (action.type) {
     case 'INIT_ALL':
       state = defaultDataMap()
-      state.backStacks = {
-        past: [],
-        present: Object,
-        future: []
-      }
+
       action.storages.forEach((storage) => {
         state.storageMap.set(storage.key, storage)
       })
@@ -365,7 +365,14 @@ function data (state = defaultDataMap(), action) {
       state.storageMap = new Map(state.storageMap)
       state.storageMap.set(action.storage.key, action.storage)
       return state
+    case 'EXPAND_STORAGE':
+      state = Object.assign({}, state)
+      state.storageMap = new Map(state.storageMap)
+      action.storage.isOpen = action.isOpen
+      state.storageMap.set(action.storage.key, action.storage)
+      return state
     case 'BACKSTACK_UPDATE':
+      state = Object.assign({}, state)
       state.backStacks = action.backStacks
       return state
   }
