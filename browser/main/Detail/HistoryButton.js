@@ -2,7 +2,6 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import CSSModules from 'browser/lib/CSSModules'
 import styles from './HistoryButton.styl'
-import _ from 'lodash'
 import i18n from 'browser/lib/i18n'
 
 class HistoryButton extends React.Component {

@@ -30,9 +30,7 @@ import { getTodoPercentageOfCompleted } from 'browser/lib/getTodoStatus'
 import striptags from 'striptags'
 import { confirmDeleteNote } from 'browser/lib/confirmDeleteNote'
 import store from 'browser/main/store'
-import { connect } from 'react-redux'
 import HistoryButton from './HistoryButton'
-import NoteList from '../NoteList'
 
 class MarkdownNoteDetail extends React.Component {
   constructor (props) {
@@ -49,8 +47,7 @@ class MarkdownNoteDetail extends React.Component {
       editorType: props.config.editor.type,
       backStack: this.props.data.backStacks,
       isBackActive: false,
-      isForwardActive: false,
-      history: []
+      isForwardActive: false
     }
     this.dispatchTimer = null
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
@@ -110,17 +107,6 @@ class MarkdownNoteDetail extends React.Component {
 
   historyChecks () {
     let back = this.state.backStack
-    var unique = []
-    var history = []
-    back.past.forEach(function (obj) {
-      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
-    })
-    back.future.forEach(function (obj) {
-      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
-    })
-    this.setState({
-      history: history
-    })
     if (back.past.length > 7) {
       back.past.splice(0, 1)
       this.setState({
@@ -413,17 +399,6 @@ class MarkdownNoteDetail extends React.Component {
     if (infoPanel.style) infoPanel.style.display = infoPanel.style.display === 'none' ? 'inline' : 'none'
   }
 
-  handleHistButtonClick (e) {
-    const historyMenu = document.querySelector('.historymenu')
-    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
-  }
-
-  handleHistMenuClick (e, note) {
-    const historyMenu = document.querySelector('.historymenu')
-    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
-    ee.emit('list:jump', note.hash)
-  }
-
   print (e) {
     ee.emit('print')
   }
@@ -461,37 +436,6 @@ class MarkdownNoteDetail extends React.Component {
         ignorePreviewPointerEvents={ignorePreviewPointerEvents}
       />
     }
-  }
-
-  renderHistory () {
-    return <div>
-      <button
-        className='historyButton'
-        styleName='control-historyButton'
-        onClick={(e) => this.handleHistButtonClick(e)}>
-        <img styleName='icon'
-          src={this.state.backStack.past.length || this.state.backStack.future.length
-        ? '../resources/icon/history-green.svg' : '../resources/icon/history-dark.svg'}
-      /></button>
-      <div className='historymenu' style={{display: 'none'}} styleName='control-historyMenu'>
-        <div>
-          {(() => {
-            if (!this.state.backStack.past.length && !this.state.backStack.future.length) {
-              return (
-                <div><p>No History</p></div>
-              )
-            }
-            else {
-              return (
-                this.state.history.map(x =>
-                  <div key={x.title}><p styleName='control-menuButton'
-                    onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)
-              )
-            }
-          })()}
-        </div>
-      </div>
-    </div>
   }
 
   render () {
@@ -532,7 +476,6 @@ class MarkdownNoteDetail extends React.Component {
     </div>
     const detailTopBar = <div styleName='info'>
       <div styleName='info-left'>
-        {this.renderHistory()}
         <div styleName='info-left-top'>
           <FolderSelect styleName='info-left-top-folderSelect'
             value={this.state.note.storage + '-' + this.state.note.folder}
