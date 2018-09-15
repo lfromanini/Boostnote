@@ -31,6 +31,7 @@ import striptags from 'striptags'
 import { confirmDeleteNote } from 'browser/lib/confirmDeleteNote'
 import store from 'browser/main/store'
 import HistoryButton from './HistoryButton'
+import i18n from 'browser/lib/i18n'
 
 class MarkdownNoteDetail extends React.Component {
   constructor (props) {
@@ -47,7 +48,8 @@ class MarkdownNoteDetail extends React.Component {
       editorType: props.config.editor.type,
       backStack: this.props.data.backStacks,
       isBackActive: false,
-      isForwardActive: false
+      isForwardActive: false,
+      history: []
     }
     this.dispatchTimer = null
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
@@ -106,7 +108,21 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   historyChecks () {
-    let back = this.state.backStack
+    const back = this.state.backStack
+    var unique = []
+    var history = []
+    var obj = {title: this.state.note.title, hash: this.state.note.key}
+    unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
+    back.past.forEach(function (obj) {
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
+    })
+    back.future.forEach(function (obj) {
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
+    })
+    this.setState({
+      history: history
+    })
+
     if (back.past.length > 7) {
       back.past.splice(0, 1)
       this.setState({
@@ -399,6 +415,17 @@ class MarkdownNoteDetail extends React.Component {
     if (infoPanel.style) infoPanel.style.display = infoPanel.style.display === 'none' ? 'inline' : 'none'
   }
 
+  handleHistButtonClick (e) {
+    const historyMenu = document.querySelector('.historymenu')
+    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
+  }
+
+  handleHistMenuClick (e, note) {
+    const historyMenu = document.querySelector('.historymenu')
+    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
+    ee.emit('list:jump', note.hash)
+  }
+
   print (e) {
     ee.emit('print')
   }
@@ -437,6 +464,39 @@ class MarkdownNoteDetail extends React.Component {
         ignorePreviewPointerEvents={ignorePreviewPointerEvents}
       />
     }
+  }
+
+  renderHistory () {
+    return <div>
+      <button
+        className='historyButton'
+        styleName='control-historyButton'
+        onClick={(e) => this.handleHistButtonClick(e)}>
+        <img styleName='icon'
+          src={this.state.backStack.past.length || this.state.backStack.future.length
+        ? '../resources/icon/history-green.svg' : '../resources/icon/history-dark.svg'}
+      />
+        <span styleName='tooltip'>{i18n.__('Show History')}</span>
+      </button>
+      <div className='historymenu' style={{display: 'none', cursor: 'pointer'}} styleName='control-historyMenu'>
+        <div>
+          {(() => {
+            if (!this.state.backStack.past.length && !this.state.backStack.future.length) {
+              return (
+                <div><p>No History</p></div>
+              )
+            } else {
+              return (
+                this.state.history.map(x =>
+                  <div key={x.title}><p styleName={this.state.note.title === x.title
+                    ? 'control-activeMenuButton' : 'control-menuButton'}
+                    onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)
+              )
+            }
+          })()}
+        </div>
+      </div>
+    </div>
   }
 
   render () {
@@ -498,12 +558,15 @@ class MarkdownNoteDetail extends React.Component {
           svg_src={this.state.isBackActive
               ? '../resources/icon/left-green.svg'
               : '../resources/icon/left-dark.svg'}
+          tooltip='Backward'
           />
+        {this.renderHistory()}
         <HistoryButton
           onClick={(e) => this.handleForwardButtonClick(e)}
           svg_src={this.state.isForwardActive
                 ? '../resources/icon/right-green.svg'
                 : '../resources/icon/right-dark.svg'}
+          tooltip='Forward'
         />
         <ToggleModeButton onClick={(e) => this.handleSwitchMode(e)} editorType={editorType} />
         <StarButton

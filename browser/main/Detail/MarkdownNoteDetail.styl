@@ -15,7 +15,7 @@
 .control-lockButton
   topBarButtonRight()
   position absolute
-  right 265px
+  right 300px
   &:hover .tooltip
     opacity 1
 
@@ -57,6 +57,9 @@ body[data-theme="dark"]
     box-shadow none
     border-left 1px solid $ui-dark-borderColor
 
+  .control-historyMenu
+    background-color $ui-dark-borderColor
+
   .control-lockButton
     topBarButtonDark()
 
@@ -72,12 +75,69 @@ body[data-theme="solarized-dark"]
     border-left 1px solid $ui-solarized-dark-borderColor
     background-color $ui-solarized-dark-noteDetail-backgroundColor
 
+  .control-historyMenu
+    background-color $ui-solarized-dark-noteDetail-backgroundColor
 
 body[data-theme="monokai"]
   .root
     border-left 1px solid $ui-monokai-borderColor
     background-color $ui-monokai-noteDetail-backgroundColor
 
+  .control-historyMenu
+    background-color $ui-monokai-noteDetail-backgroundColor
 
 hr
+  margin 12px 0
+
+.control-historyMenu
+  font-size 12
+  line-height 1
+  z-index 200
   margin 0
+  top: 50px
+  right: 165px
+  position absolute
+  padding 10px 10px 5px 10px
+  width 175px
+  background-color $ui-noteDetail-backgroundColor
+  box-shadow 2px 12px 15px 2px rgba(0, 0, 0, 0.1), 2px 1px 50px 2px rgba(0, 0, 0, 0.1)
+  border-radius 2px
+
+.control-historyButton
+  topBarButtonRight()
+  opacity 1
+
+.control-menuButton
+  line-height 15px
+  white-space nowrap
+  overflow hidden
+  text-overflow ellipsis
+  position relative
+
+.control-activeMenuButton
+  color #51DFB0
+  line-height 15px
+  white-space nowrap
+  overflow hidden
+  text-overflow ellipsis
+  position relative
+
+.control-historyButton
+  top 115px
+  width 25px
+  topBarButtonRight()
+  &:hover .tooltip
+    opacity 1
+
+  .tooltip
+    tooltip()
+    position absolute
+    pointer-events none
+    top 50px
+    right 218px
+    z-index 200
+    padding 5px
+    line-height normal
+    border-radius 1px
+    opacity 0
+    transition 0.1s
