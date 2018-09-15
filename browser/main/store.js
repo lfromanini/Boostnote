@@ -221,16 +221,10 @@ function data (state = defaultDataMap(), action) {
         return state
       }
     case 'UPDATE_FOLDER':
-      state = Object.assign({}, state)
-      state.storageMap = new Map(state.storageMap)
-      state.storageMap.set(action.storage.key, action.storage)
-      return state
     case 'REORDER_FOLDER':
-      state = Object.assign({}, state)
-      state.storageMap = new Map(state.storageMap)
-      state.storageMap.set(action.storage.key, action.storage)
-      return state
     case 'EXPORT_FOLDER':
+    case 'RENAME_STORAGE':
+    case 'EXPORT_STORAGE':
       state = Object.assign({}, state)
       state.storageMap = new Map(state.storageMap)
       state.storageMap.set(action.storage.key, action.storage)
@@ -359,11 +353,6 @@ function data (state = defaultDataMap(), action) {
           })
         })
       }
-      return state
-    case 'RENAME_STORAGE':
-      state = Object.assign({}, state)
-      state.storageMap = new Map(state.storageMap)
-      state.storageMap.set(action.storage.key, action.storage)
       return state
     case 'EXPAND_STORAGE':
       state = Object.assign({}, state)
