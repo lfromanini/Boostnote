@@ -80,6 +80,7 @@ class NoteList extends React.Component {
     this.getViewType = this.getViewType.bind(this)
     this.restoreNote = this.restoreNote.bind(this)
     this.copyNoteLink = this.copyNoteLink.bind(this)
+    this.navigate = this.navigate.bind(this)
 
     // TODO: not Selected noteKeys but SelectedNote(for reusing)
     this.state = {
@@ -98,6 +99,7 @@ class NoteList extends React.Component {
     ee.on('list:isMarkdownNote', this.alertIfSnippetHandler)
     ee.on('import:file', this.importFromFileHandler)
     ee.on('list:jump', this.jumpNoteByHash)
+    ee.on('list:navigate', this.navigate)
   }
 
   componentWillReceiveProps (nextProps) {
@@ -418,10 +420,10 @@ class NoteList extends React.Component {
   }
 
   handleSortByChange (e) {
-    const { dispatch } = this.props
+    const { dispatch, params: { folderKey } } = this.props
 
     const config = {
-      sortBy: e.target.value
+      [folderKey]: { sortBy: e.target.value }
     }
 
     ConfigManager.set(config)
@@ -687,6 +689,16 @@ class NoteList extends React.Component {
     return copy(noteLink)
   }
 
+  navigate (sender, pathname) {
+    const { router } = this.context
+    router.push({
+      pathname,
+      query: {
+        // key: noteKey
+      }
+    })
+  }
+
   save (note) {
     const { dispatch } = this.props
     dataApi
@@ -909,12 +921,13 @@ class NoteList extends React.Component {
   }
 
   render () {
-    const { location, config } = this.props
+    const { location, config, params: { folderKey } } = this.props
     let { notes } = this.props
     const { selectedNoteKeys } = this.state
-    const sortFunc = config.sortBy === 'CREATED_AT'
+    const sortBy = _.get(config, [folderKey, 'sortBy'], config.sortBy.default)
+    const sortFunc = sortBy === 'CREATED_AT'
       ? sortByCreatedAt
-      : config.sortBy === 'ALPHABETICAL'
+      : sortBy === 'ALPHABETICAL'
       ? sortByAlphabetical
       : sortByUpdatedAt
     const sortedNotes = location.pathname.match(/\/starred|\/trash/)
@@ -965,7 +978,7 @@ class NoteList extends React.Component {
           notes.length === 1 ||
           (autoSelectFirst && index === 0)
         const dateDisplay = moment(
-          config.sortBy === 'CREATED_AT'
+          sortBy === 'CREATED_AT'
             ? note.createdAt : note.updatedAt
         ).fromNow('D')
 
@@ -1014,7 +1027,7 @@ class NoteList extends React.Component {
             <i className='fa fa-angle-down' />
             <select styleName='control-sortBy-select'
               title={i18n.__('Select filter mode')}
-              value={config.sortBy}
+              value={sortBy}
               onChange={(e) => this.handleSortByChange(e)}
             >
               <option title='Sort by update time' value='UPDATED_AT'>{i18n.__('Updated')}</option>

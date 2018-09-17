@@ -16,7 +16,9 @@ export const DEFAULT_CONFIG = {
   isSideNavFolded: false,
   listWidth: 280,
   navWidth: 200,
-  sortBy: 'UPDATED_AT', // 'CREATED_AT', 'UPDATED_AT', 'APLHABETICAL'
+  sortBy: {
+    default: 'UPDATED_AT' // 'CREATED_AT', 'UPDATED_AT', 'APLHABETICAL'
+  },
   sortTagsBy: 'ALPHABETICAL', // 'ALPHABETICAL', 'COUNTER'
   listStyle: 'DEFAULT', // 'DEFAULT', 'SMALL'
   amaEnabled: true,
@@ -44,7 +46,8 @@ export const DEFAULT_CONFIG = {
     switchPreview: 'BLUR', // Available value: RIGHTCLICK, BLUR
     scrollPastEnd: false,
     type: 'SPLIT',
-    fetchUrlTitle: true
+    fetchUrlTitle: true,
+    enableTableEditor: false
   },
   preview: {
     fontSize: '14',

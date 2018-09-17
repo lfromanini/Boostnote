@@ -5,7 +5,7 @@ import CodeMirror from 'codemirror'
 import 'codemirror-mode-elixir'
 import attachmentManagement from 'browser/main/lib/dataApi/attachmentManagement'
 import convertModeName from 'browser/lib/convertModeName'
-import { options, TableEditor } from '@susisu/mte-kernel'
+import { options, TableEditor, Alignment } from '@susisu/mte-kernel'
 import TextEditorInterface from 'browser/lib/TextEditorInterface'
 import eventEmitter from 'browser/main/lib/eventEmitter'
 import iconv from 'iconv-lite'
@@ -18,14 +18,17 @@ import normalizeEditorFontFamily from 'browser/lib/normalizeEditorFontFamily'
 CodeMirror.modeURL = '../node_modules/codemirror/mode/%N/%N.js'
 
 const buildCMRulers = (rulers, enableRulers) =>
-  enableRulers ? rulers.map(ruler => ({column: ruler})) : []
+  (enableRulers ? rulers.map(ruler => ({ column: ruler })) : [])
 
 export default class CodeEditor extends React.Component {
   constructor (props) {
     super(props)
 
-    this.scrollHandler = _.debounce(this.handleScroll.bind(this), 100, {leading: false, trailing: true})
-    this.changeHandler = (e) => this.handleChange(e)
+    this.scrollHandler = _.debounce(this.handleScroll.bind(this), 100, {
+      leading: false,
+      trailing: true
+    })
+    this.changeHandler = e => this.handleChange(e)
     this.focusHandler = () => {
       ipcRenderer.send('editor:focused', true)
     }
@@ -41,17 +44,22 @@ export default class CodeEditor extends React.Component {
       }
       this.props.onBlur != null && this.props.onBlur(e)
 
-      const {storageKey, noteKey} = this.props
-      attachmentManagement.deleteAttachmentsNotPresentInNote(this.editor.getValue(), storageKey, noteKey)
+      const { storageKey, noteKey } = this.props
+      attachmentManagement.deleteAttachmentsNotPresentInNote(
+        this.editor.getValue(),
+        storageKey,
+        noteKey
+      )
     }
     this.pasteHandler = (editor, e) => this.handlePaste(editor, e)
-    this.loadStyleHandler = (e) => {
+    this.loadStyleHandler = e => {
       this.editor.refresh()
     }
     this.searchHandler = (e, msg) => this.handleSearch(msg)
     this.searchState = null
 
     this.formatTable = () => this.handleFormatTable()
+    this.editorActivityHandler = () => this.handleEditorActivity()
   }
 
   handleSearch (msg) {
@@ -66,7 +74,10 @@ export default class CodeEditor extends React.Component {
       cm.addOverlay(component.searchState)
 
       function makeOverlay (query, style) {
-        query = new RegExp(query.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&'), 'gi')
+        query = new RegExp(
+          query.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&'),
+          'gi'
+        )
         return {
           token: function (stream) {
             query.lastIndex = stream.pos
@@ -89,6 +100,28 @@ export default class CodeEditor extends React.Component {
     this.tableEditor.formatAll(options({textWidthOptions: {}}))
   }
 
+  handleEditorActivity () {
+    if (!this.textEditorInterface.transaction) {
+      this.updateTableEditorState()
+    }
+  }
+
+  updateTableEditorState () {
+    const active = this.tableEditor.cursorIsInTable(this.tableEditorOptions)
+    if (active) {
+      if (this.extraKeysMode !== 'editor') {
+        this.extraKeysMode = 'editor'
+        this.editor.setOption('extraKeys', this.editorKeyMap)
+      }
+    } else {
+      if (this.extraKeysMode !== 'default') {
+        this.extraKeysMode = 'default'
+        this.editor.setOption('extraKeys', this.defaultKeyMap)
+        this.tableEditor.resetSmartCursor()
+      }
+    }
+  }
+
   componentDidMount () {
     const { rulers, enableRulers } = this.props
     const expandSnippet = this.expandSnippet.bind(this)
@@ -102,8 +135,65 @@ export default class CodeEditor extends React.Component {
       }
     ]
     if (!fs.existsSync(consts.SNIPPET_FILE)) {
-      fs.writeFileSync(consts.SNIPPET_FILE, JSON.stringify(defaultSnippet, null, 4), 'utf8')
+      fs.writeFileSync(
+        consts.SNIPPET_FILE,
+        JSON.stringify(defaultSnippet, null, 4),
+        'utf8'
+      )
     }
+
+    this.defaultKeyMap = CodeMirror.normalizeKeyMap({
+      Tab: function (cm) {
+        const cursor = cm.getCursor()
+        const line = cm.getLine(cursor.line)
+        const cursorPosition = cursor.ch
+        const charBeforeCursor = line.substr(cursorPosition - 1, 1)
+        if (cm.somethingSelected()) cm.indentSelection('add')
+        else {
+          const tabs = cm.getOption('indentWithTabs')
+          if (line.trimLeft().match(/^(-|\*|\+) (\[( |x)] )?$/)) {
+            cm.execCommand('goLineStart')
+            if (tabs) {
+              cm.execCommand('insertTab')
+            } else {
+              cm.execCommand('insertSoftTab')
+            }
+            cm.execCommand('goLineEnd')
+          } else if (
+            !charBeforeCursor.match(/\t|\s|\r|\n/) &&
+            cursor.ch > 1
+          ) {
+            // text expansion on tab key if the char before is alphabet
+            const snippets = JSON.parse(
+              fs.readFileSync(consts.SNIPPET_FILE, 'utf8')
+            )
+            if (expandSnippet(line, cursor, cm, snippets) === false) {
+              if (tabs) {
+                cm.execCommand('insertTab')
+              } else {
+                cm.execCommand('insertSoftTab')
+              }
+            }
+          } else {
+            if (tabs) {
+              cm.execCommand('insertTab')
+            } else {
+              cm.execCommand('insertSoftTab')
+            }
+          }
+        }
+      },
+      'Cmd-T': function (cm) {
+        // Do nothing
+      },
+      Enter: 'boostNewLineAndIndentContinueMarkdownList',
+      'Ctrl-C': cm => {
+        if (cm.getOption('keyMap').substr(0, 3) === 'vim') {
+          document.execCommand('copy')
+        }
+        return CodeMirror.Pass
+      }
+    })
 
     this.value = this.props.value
     this.editor = CodeMirror(this.refs.root, {
@@ -127,53 +217,7 @@ export default class CodeEditor extends React.Component {
         explode: '[]{}``$$',
         override: true
       },
-      extraKeys: {
-        Tab: function (cm) {
-          const cursor = cm.getCursor()
-          const line = cm.getLine(cursor.line)
-          const cursorPosition = cursor.ch
-          const charBeforeCursor = line.substr(cursorPosition - 1, 1)
-          if (cm.somethingSelected()) cm.indentSelection('add')
-          else {
-            const tabs = cm.getOption('indentWithTabs')
-            if (line.trimLeft().match(/^(-|\*|\+) (\[( |x)] )?$/)) {
-              cm.execCommand('goLineStart')
-              if (tabs) {
-                cm.execCommand('insertTab')
-              } else {
-                cm.execCommand('insertSoftTab')
-              }
-              cm.execCommand('goLineEnd')
-            } else if (!charBeforeCursor.match(/\t|\s|\r|\n/) && cursor.ch > 1) {
-              // text expansion on tab key if the char before is alphabet
-              const snippets = JSON.parse(fs.readFileSync(consts.SNIPPET_FILE, 'utf8'))
-              if (expandSnippet(line, cursor, cm, snippets) === false) {
-                if (tabs) {
-                  cm.execCommand('insertTab')
-                } else {
-                  cm.execCommand('insertSoftTab')
-                }
-              }
-            } else {
-              if (tabs) {
-                cm.execCommand('insertTab')
-              } else {
-                cm.execCommand('insertSoftTab')
-              }
-            }
-          }
-        },
-        'Cmd-T': function (cm) {
-          // Do nothing
-        },
-        Enter: 'boostNewLineAndIndentContinueMarkdownList',
-        'Ctrl-C': (cm) => {
-          if (cm.getOption('keyMap').substr(0, 3) === 'vim') {
-            document.execCommand('copy')
-          }
-          return CodeMirror.Pass
-        }
-      }
+      extraKeys: this.defaultKeyMap
     })
 
     this.setMode(this.props.mode)
@@ -196,12 +240,66 @@ export default class CodeEditor extends React.Component {
     CodeMirror.Vim.defineEx('qw', 'qw', this.quitEditor)
     CodeMirror.Vim.map('ZZ', ':q', 'normal')
 
-    this.tableEditor = new TableEditor(new TextEditorInterface(this.editor))
+    this.textEditorInterface = new TextEditorInterface(this.editor)
+    this.tableEditor = new TableEditor(this.textEditorInterface)
     eventEmitter.on('code:format-table', this.formatTable)
+
+    this.tableEditorOptions = options({
+      smartCursor: true
+    })
+
+    this.editorKeyMap = CodeMirror.normalizeKeyMap({
+      'Tab': () => { this.tableEditor.nextCell(this.tableEditorOptions) },
+      'Shift-Tab': () => { this.tableEditor.previousCell(this.tableEditorOptions) },
+      'Enter': () => { this.tableEditor.nextRow(this.tableEditorOptions) },
+      'Ctrl-Enter': () => { this.tableEditor.escape(this.tableEditorOptions) },
+      'Cmd-Enter': () => { this.tableEditor.escape(this.tableEditorOptions) },
+      'Shift-Ctrl-Left': () => { this.tableEditor.alignColumn(Alignment.LEFT, this.tableEditorOptions) },
+      'Shift-Cmd-Left': () => { this.tableEditor.alignColumn(Alignment.LEFT, this.tableEditorOptions) },
+      'Shift-Ctrl-Right': () => { this.tableEditor.alignColumn(Alignment.RIGHT, this.tableEditorOptions) },
+      'Shift-Cmd-Right': () => { this.tableEditor.alignColumn(Alignment.RIGHT, this.tableEditorOptions) },
+      'Shift-Ctrl-Up': () => { this.tableEditor.alignColumn(Alignment.CENTER, this.tableEditorOptions) },
+      'Shift-Cmd-Up': () => { this.tableEditor.alignColumn(Alignment.CENTER, this.tableEditorOptions) },
+      'Shift-Ctrl-Down': () => { this.tableEditor.alignColumn(Alignment.NONE, this.tableEditorOptions) },
+      'Shift-Cmd-Down': () => { this.tableEditor.alignColumn(Alignment.NONE, this.tableEditorOptions) },
+      'Ctrl-Left': () => { this.tableEditor.moveFocus(0, -1, this.tableEditorOptions) },
+      'Cmd-Left': () => { this.tableEditor.moveFocus(0, -1, this.tableEditorOptions) },
+      'Ctrl-Right': () => { this.tableEditor.moveFocus(0, 1, this.tableEditorOptions) },
+      'Cmd-Right': () => { this.tableEditor.moveFocus(0, 1, this.tableEditorOptions) },
+      'Ctrl-Up': () => { this.tableEditor.moveFocus(-1, 0, this.tableEditorOptions) },
+      'Cmd-Up': () => { this.tableEditor.moveFocus(-1, 0, this.tableEditorOptions) },
+      'Ctrl-Down': () => { this.tableEditor.moveFocus(1, 0, this.tableEditorOptions) },
+      'Cmd-Down': () => { this.tableEditor.moveFocus(1, 0, this.tableEditorOptions) },
+      'Ctrl-K Ctrl-I': () => { this.tableEditor.insertRow(this.tableEditorOptions) },
+      'Cmd-K Cmd-I': () => { this.tableEditor.insertRow(this.tableEditorOptions) },
+      'Ctrl-L Ctrl-I': () => { this.tableEditor.deleteRow(this.tableEditorOptions) },
+      'Cmd-L Cmd-I': () => { this.tableEditor.deleteRow(this.tableEditorOptions) },
+      'Ctrl-K Ctrl-J': () => { this.tableEditor.insertColumn(this.tableEditorOptions) },
+      'Cmd-K Cmd-J': () => { this.tableEditor.insertColumn(this.tableEditorOptions) },
+      'Ctrl-L Ctrl-J': () => { this.tableEditor.deleteColumn(this.tableEditorOptions) },
+      'Cmd-L Cmd-J': () => { this.tableEditor.deleteColumn(this.tableEditorOptions) },
+      'Alt-Shift-Ctrl-Left': () => { this.tableEditor.moveColumn(-1, this.tableEditorOptions) },
+      'Alt-Shift-Cmd-Left': () => { this.tableEditor.moveColumn(-1, this.tableEditorOptions) },
+      'Alt-Shift-Ctrl-Right': () => { this.tableEditor.moveColumn(1, this.tableEditorOptions) },
+      'Alt-Shift-Cmd-Right': () => { this.tableEditor.moveColumn(1, this.tableEditorOptions) },
+      'Alt-Shift-Ctrl-Up': () => { this.tableEditor.moveRow(-1, this.tableEditorOptions) },
+      'Alt-Shift-Cmd-Up': () => { this.tableEditor.moveRow(-1, this.tableEditorOptions) },
+      'Alt-Shift-Ctrl-Down': () => { this.tableEditor.moveRow(1, this.tableEditorOptions) },
+      'Alt-Shift-Cmd-Down': () => { this.tableEditor.moveRow(1, this.tableEditorOptions) }
+    })
+
+    if (this.props.enableTableEditor) {
+      this.editor.on('cursorActivity', this.editorActivityHandler)
+      this.editor.on('changes', this.editorActivityHandler)
+    }
   }
 
   expandSnippet (line, cursor, cm, snippets) {
-    const wordBeforeCursor = this.getWordBeforeCursor(line, cursor.line, cursor.ch)
+    const wordBeforeCursor = this.getWordBeforeCursor(
+      line,
+      cursor.line,
+      cursor.ch
+    )
     const templateCursorString = ':{}'
     for (let i = 0; i < snippets.length; i++) {
       if (snippets[i].prefix.indexOf(wordBeforeCursor.text) !== -1) {
@@ -219,7 +317,10 @@ export default class CodeEditor extends React.Component {
                 wordBeforeCursor.range.from,
                 wordBeforeCursor.range.to
               )
-              cm.setCursor({ line: cursor.line + cursorLineNumber, ch: cursorLinePosition })
+              cm.setCursor({
+                line: cursor.line + cursorLineNumber,
+                ch: cursorLinePosition
+              })
             }
           }
         } else {
@@ -261,8 +362,8 @@ export default class CodeEditor extends React.Component {
     return {
       text: wordBeforeCursor,
       range: {
-        from: {line: lineNumber, ch: originCursorPosition},
-        to: {line: lineNumber, ch: cursorPosition}
+        from: { line: lineNumber, ch: originCursorPosition },
+        to: { line: lineNumber, ch: cursorPosition }
       }
     }
   }
@@ -286,7 +387,7 @@ export default class CodeEditor extends React.Component {
 
   componentDidUpdate (prevProps, prevState) {
     let needRefresh = false
-    const {rulers, enableRulers} = this.props
+    const { rulers, enableRulers } = this.props
     if (prevProps.mode !== this.props.mode) {
       this.setMode(this.props.mode)
     }
@@ -304,7 +405,10 @@ export default class CodeEditor extends React.Component {
       needRefresh = true
     }
 
-    if (prevProps.enableRulers !== enableRulers || prevProps.rulers !== rulers) {
+    if (
+      prevProps.enableRulers !== enableRulers ||
+      prevProps.rulers !== rulers
+    ) {
       this.editor.setOption('rulers', buildCMRulers(rulers, enableRulers))
     }
 
@@ -322,6 +426,19 @@ export default class CodeEditor extends React.Component {
 
     if (prevProps.scrollPastEnd !== this.props.scrollPastEnd) {
       this.editor.setOption('scrollPastEnd', this.props.scrollPastEnd)
+    }
+
+    if (prevProps.enableTableEditor !== this.props.enableTableEditor) {
+      if (this.props.enableTableEditor) {
+        this.editor.on('cursorActivity', this.editorActivityHandler)
+        this.editor.on('changes', this.editorActivityHandler)
+      } else {
+        this.editor.off('cursorActivity', this.editorActivityHandler)
+        this.editor.off('changes', this.editorActivityHandler)
+      }
+
+      this.extraKeysMode = 'default'
+      this.editor.setOption('extraKeys', this.defaultKeyMap)
     }
 
     if (needRefresh) {
@@ -344,11 +461,9 @@ export default class CodeEditor extends React.Component {
     }
   }
 
-  moveCursorTo (row, col) {
-  }
+  moveCursorTo (row, col) {}
 
-  scrollToLine (num) {
-  }
+  scrollToLine (num) {}
 
   focus () {
     this.editor.focus()
@@ -376,8 +491,13 @@ export default class CodeEditor extends React.Component {
 
   handleDropImage (dropEvent) {
     dropEvent.preventDefault()
-    const {storageKey, noteKey} = this.props
-    attachmentManagement.handleAttachmentDrop(this, storageKey, noteKey, dropEvent)
+    const { storageKey, noteKey } = this.props
+    attachmentManagement.handleAttachmentDrop(
+      this,
+      storageKey,
+      noteKey,
+      dropEvent
+    )
   }
 
   insertAttachmentMd (imageMd) {
@@ -386,34 +506,44 @@ export default class CodeEditor extends React.Component {
 
   handlePaste (editor, e) {
     const clipboardData = e.clipboardData
-    const {storageKey, noteKey} = this.props
+    const { storageKey, noteKey } = this.props
     const dataTransferItem = clipboardData.items[0]
     const pastedTxt = clipboardData.getData('text')
-    const isURL = (str) => {
+    const isURL = str => {
       const matcher = /^(?:\w+:)?\/\/([^\s\.]+\.\S{2}|localhost[\:?\d]*)\S*$/
       return matcher.test(str)
     }
-    const isInLinkTag = (editor) => {
+    const isInLinkTag = editor => {
       const startCursor = editor.getCursor('start')
       const prevChar = editor.getRange(
-        {line: startCursor.line, ch: startCursor.ch - 2},
-        {line: startCursor.line, ch: startCursor.ch}
+        { line: startCursor.line, ch: startCursor.ch - 2 },
+        { line: startCursor.line, ch: startCursor.ch }
       )
       const endCursor = editor.getCursor('end')
       const nextChar = editor.getRange(
-        {line: endCursor.line, ch: endCursor.ch},
-        {line: endCursor.line, ch: endCursor.ch + 1}
+        { line: endCursor.line, ch: endCursor.ch },
+        { line: endCursor.line, ch: endCursor.ch + 1 }
       )
       return prevChar === '](' && nextChar === ')'
     }
     if (dataTransferItem.type.match('image')) {
-      attachmentManagement.handlePastImageEvent(this, storageKey, noteKey, dataTransferItem)
-    } else if (this.props.fetchUrlTitle && isURL(pastedTxt) && !isInLinkTag(editor)) {
+      attachmentManagement.handlePastImageEvent(
+        this,
+        storageKey,
+        noteKey,
+        dataTransferItem
+      )
+    } else if (
+      this.props.fetchUrlTitle &&
+      isURL(pastedTxt) &&
+      !isInLinkTag(editor)
+    ) {
       this.handlePasteUrl(e, editor, pastedTxt)
     }
     if (attachmentManagement.isAttachmentLink(pastedTxt)) {
-      attachmentManagement.handleAttachmentLinkPaste(storageKey, noteKey, pastedTxt)
-        .then((modifiedText) => {
+      attachmentManagement
+        .handleAttachmentLinkPaste(storageKey, noteKey, pastedTxt)
+        .then(modifiedText => {
           this.editor.replaceSelection(modifiedText)
         })
       e.preventDefault()
@@ -431,40 +561,53 @@ export default class CodeEditor extends React.Component {
     const taggedUrl = `<${pastedTxt}>`
     editor.replaceSelection(taggedUrl)
 
-    const isImageReponse = (response) => {
-      return response.headers.has('content-type') &&
+    const isImageReponse = response => {
+      return (
+        response.headers.has('content-type') &&
         response.headers.get('content-type').match(/^image\/.+$/)
+      )
     }
-    const replaceTaggedUrl = (replacement) => {
+    const replaceTaggedUrl = replacement => {
       const value = editor.getValue()
       const cursor = editor.getCursor()
       const newValue = value.replace(taggedUrl, replacement)
-      const newCursor = Object.assign({}, cursor, { ch: cursor.ch + newValue.length - value.length })
+      const newCursor = Object.assign({}, cursor, {
+        ch: cursor.ch + newValue.length - value.length
+      })
       editor.setValue(newValue)
       editor.setCursor(newCursor)
     }
 
     fetch(pastedTxt, {
       method: 'get'
-    }).then((response) => {
-      if (isImageReponse(response)) {
-        return this.mapImageResponse(response, pastedTxt)
-      } else {
-        return this.mapNormalResponse(response, pastedTxt)
-      }
-    }).then((replacement) => {
-      replaceTaggedUrl(replacement)
-    }).catch((e) => {
-      replaceTaggedUrl(pastedTxt)
     })
+      .then(response => {
+        if (isImageReponse(response)) {
+          return this.mapImageResponse(response, pastedTxt)
+        } else {
+          return this.mapNormalResponse(response, pastedTxt)
+        }
+      })
+      .then(replacement => {
+        replaceTaggedUrl(replacement)
+      })
+      .catch(e => {
+        replaceTaggedUrl(pastedTxt)
+      })
   }
 
   mapNormalResponse (response, pastedTxt) {
-    return this.decodeResponse(response).then((body) => {
+    return this.decodeResponse(response).then(body => {
       return new Promise((resolve, reject) => {
         try {
-          const parsedBody = (new window.DOMParser()).parseFromString(body, 'text/html')
-          const linkWithTitle = `[${parsedBody.title}](${pastedTxt})`
+          const parsedBody = new window.DOMParser().parseFromString(
+            body,
+            'text/html'
+          )
+          const escapePipe = (str) => {
+            return str.replace('|', '\\|')
+          }
+          const linkWithTitle = `[${escapePipe(parsedBody.title)}](${pastedTxt})`
           resolve(linkWithTitle)
         } catch (e) {
           reject(e)
@@ -491,10 +634,13 @@ export default class CodeEditor extends React.Component {
     const _charset = headers.has('content-type')
       ? this.extractContentTypeCharset(headers.get('content-type'))
       : undefined
-    return response.arrayBuffer().then((buff) => {
+    return response.arrayBuffer().then(buff => {
       return new Promise((resolve, reject) => {
         try {
-          const charset = _charset !== undefined && iconv.encodingExists(_charset) ? _charset : 'utf-8'
+          const charset = _charset !== undefined &&
+            iconv.encodingExists(_charset)
+            ? _charset
+            : 'utf-8'
           resolve(iconv.decode(new Buffer(buff), charset).toString())
         } catch (e) {
           reject(e)
@@ -504,11 +650,14 @@ export default class CodeEditor extends React.Component {
   }
 
   extractContentTypeCharset (contentType) {
-    return contentType.split(';').filter((str) => {
-      return str.trim().toLowerCase().startsWith('charset')
-    }).map((str) => {
-      return str.replace(/['"]/g, '').split('=')[1]
-    })[0]
+    return contentType
+      .split(';')
+      .filter(str => {
+        return str.trim().toLowerCase().startsWith('charset')
+      })
+      .map(str => {
+        return str.replace(/['"]/g, '').split('=')[1]
+      })[0]
   }
 
   render () {
@@ -517,10 +666,7 @@ export default class CodeEditor extends React.Component {
     const width = this.props.width
     return (
       <div
-        className={className == null
-          ? 'CodeEditor'
-          : `CodeEditor ${className}`
-        }
+        className={className == null ? 'CodeEditor' : `CodeEditor ${className}`}
         ref='root'
         tabIndex='-1'
         style={{
@@ -528,7 +674,7 @@ export default class CodeEditor extends React.Component {
           fontSize: fontSize,
           width: width
         }}
-        onDrop={(e) => this.handleDropImage(e)}
+        onDrop={e => this.handleDropImage(e)}
       />
     )
   }

@@ -29,6 +29,7 @@ import { formatDate } from 'browser/lib/date-formatter'
 import { getTodoPercentageOfCompleted } from 'browser/lib/getTodoStatus'
 import striptags from 'striptags'
 import { confirmDeleteNote } from 'browser/lib/confirmDeleteNote'
+import markdownToc from 'browser/lib/markdown-toc-generator'
 import store from 'browser/main/store'
 import HistoryButton from './HistoryButton'
 import i18n from 'browser/lib/i18n'
@@ -53,6 +54,7 @@ class MarkdownNoteDetail extends React.Component {
     }
     this.dispatchTimer = null
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
+    this.generateToc = () => this.handleGenerateToc()
   }
 
   focus () {
@@ -63,11 +65,13 @@ class MarkdownNoteDetail extends React.Component {
     this.setState({
       backStack: this.undoable('Default')
     })
+    this.historyChecks()
     ee.on('topbar:togglelockbutton', this.toggleLockButton)
     ee.on('topbar:togglemodebutton', () => {
       const reversedType = this.state.editorType === 'SPLIT' ? 'EDITOR_PREVIEW' : 'SPLIT'
       this.handleSwitchMode(reversedType)
     })
+    ee.on('code:generate-toc', this.generateToc)
   }
 
   componentWillReceiveProps (nextProps) {
@@ -80,6 +84,7 @@ class MarkdownNoteDetail extends React.Component {
         this.setState({
           backStack: this.undoable('Default')
         })
+        this.historyChecks()
         if (this.refs.tags) this.refs.tags.reset()
       })
     }
@@ -91,6 +96,7 @@ class MarkdownNoteDetail extends React.Component {
       backStacks: this.state.backStack
     })
     ee.off('topbar:togglelockbutton', this.toggleLockButton)
+    ee.off('code:generate-toc', this.generateToc)
     if (this.saveQueue != null) this.saveNow()
   }
 
@@ -108,29 +114,27 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   historyChecks () {
-    const back = this.state.backStack
+    var back = this.state.backStack
     var unique = []
-    var history = []
-    var obj = {title: this.state.note.title, hash: this.state.note.key}
-
-    unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
+    var historyNow = []
+    // var pobj = {title: this.state.note.title, hash: this.state.note.key}
+    // unique.push(pobj.hash) && historyNow.push(pobj)
     back.past.forEach(function (obj) {
-      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && historyNow.push(obj)
     })
     back.future.forEach(function (obj) {
-      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && historyNow.push(obj)
     })
     this.setState({
-      history: history
+      history: historyNow
     })
-
-    if (back.past.length > 7) {
+    if (back.past.length > 10) {
       back.past.splice(0, 1)
       this.setState({
         backStack: back
       })
     }
-    if (back.future.length > 7) {
+    if (back.future.length > 10) {
       back.future.splice(0, 1)
       this.setState({ backStack: back })
     }
@@ -148,10 +152,12 @@ class MarkdownNoteDetail extends React.Component {
         this.setState({ isForwardActive: true })
       }
     } else {
-      if (this.isForwardActive) {
+      if (this.state.isForwardActive) {
         this.setState({ isForwardActive: false })
       }
     }
+    console.log(this.state.backStack)
+    console.log(this.state.history)
   }
 
   handleBackwardButtonClick () {
@@ -167,10 +173,11 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   undoable (action) {
-    this.historyChecks()
+    // this.historyChecks()
     var { past, present, future } = this.state.backStack
     switch (action) {
       case 'BACKWARD':
+        console.log('Backward')
         if (past.length) {
           var previous = past.pop()
           if (previous.hash === present.hash) {
@@ -186,6 +193,7 @@ class MarkdownNoteDetail extends React.Component {
         }
         break
       case 'FORWARD':
+        console.log('Forward')
         if (future.length) {
           var next = future.pop()
           if (next.hash === present.hash) {
@@ -201,6 +209,7 @@ class MarkdownNoteDetail extends React.Component {
         }
         break
       case 'Default':
+        console.log('Default')
         const newPresent = {title: this.state.note.title, hash: this.state.note.key}
         if (present.hash === newPresent.hash) {
           return {
@@ -393,6 +402,11 @@ class MarkdownNoteDetail extends React.Component {
     }
   }
 
+  handleGenerateToc () {
+    const editor = this.refs.content.refs.code.editor
+    markdownToc.generateInEditor(editor)
+  }
+
   handleFocus (e) {
     this.focus()
   }
@@ -475,9 +489,14 @@ class MarkdownNoteDetail extends React.Component {
             } else {
               return (
                 this.state.history.map(x =>
-                  <div key={x.title}><p styleName={this.state.note.title === x.title
-                    ? 'control-activeMenuButton' : 'control-menuButton'}
-                    onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title}</p><hr /></div>)
+                  <div key={x.hash}>
+                    <p styleName={this.state.note.key === x.hash
+                      ? 'control-activeMenuButton' : 'control-menuButton'}
+                      onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title === ''
+                      ? 'Empty Note' : x.title }
+                    </p>
+                    <hr />
+                  </div>)
               )
             }
           })()}
@@ -535,6 +554,7 @@ class MarkdownNoteDetail extends React.Component {
         <TagSelect
           ref='tags'
           value={this.state.note.tags}
+          data={data}
           onChange={this.handleUpdateTag.bind(this)}
         />
         <TodoListPercentage percentageOfTodo={getTodoPercentageOfCompleted(note.content)} />
