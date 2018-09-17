@@ -112,6 +112,7 @@ class MarkdownNoteDetail extends React.Component {
     var unique = []
     var history = []
     var obj = {title: this.state.note.title, hash: this.state.note.key}
+
     unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
     back.past.forEach(function (obj) {
       unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && history.push(obj)
@@ -127,42 +128,28 @@ class MarkdownNoteDetail extends React.Component {
       back.past.splice(0, 1)
       this.setState({
         backStack: back
-      }, () => {
-        this.save()
       })
     }
     if (back.future.length > 7) {
       back.future.splice(0, 1)
-      this.setState({
-        backStack: back
-      }, () => {
-        this.save()
-      })
+      this.setState({ backStack: back })
     }
     if (back.past.length) {
       if (!this.state.isBackActive) {
-        this.setState({isBackActive: true}, () => {
-          this.save()
-        })
+        this.setState({ isBackActive: true })
       }
     } else {
       if (this.state.isBackActive) {
-        this.setState({isBackActive: false}, () => {
-          this.save()
-        })
+        this.setState({ isBackActive: false })
       }
     }
     if (back.future.length) {
       if (!this.state.isForwardActive) {
-        this.setState({isForwardActive: true}, () => {
-          this.save()
-        })
+        this.setState({ isForwardActive: true })
       }
     } else {
       if (this.isForwardActive) {
-        this.setState({isForwardActive: false}, () => {
-          this.save()
-        })
+        this.setState({ isForwardActive: false })
       }
     }
   }
