@@ -149,6 +149,7 @@ class Markdown {
     })
     this.md.use(require('markdown-it-kbd'))
     this.md.use(require('markdown-it-admonition'))
+    this.md.use(require('./markdown-it-frontmatter'))
 
     const deflate = require('markdown-it-plantuml/lib/deflate')
     this.md.use(require('markdown-it-plantuml'), '', {
@@ -158,6 +159,22 @@ class Markdown {
         const s = unescape(encodeURIComponent(umlCode))
         const zippedCode = deflate.encode64(
           deflate.zip_deflate(`@startuml\n${s}\n@enduml`, 9)
+        )
+        return `${serverAddress}/${zippedCode}`
+      }
+    })
+
+    // Ditaa support
+    this.md.use(require('markdown-it-plantuml'), {
+      openMarker: '@startditaa',
+      closeMarker: '@endditaa',
+      generateSource: function (umlCode) {
+        const stripTrailingSlash = (url) => url.endsWith('/') ? url.slice(0, -1) : url
+        // Currently PlantUML server doesn't support Ditaa in SVG, so we set the format as PNG at the moment.
+        const serverAddress = stripTrailingSlash(config.preview.plantUMLServerAddress) + '/png'
+        const s = unescape(encodeURIComponent(umlCode))
+        const zippedCode = deflate.encode64(
+          deflate.zip_deflate(`@startditaa\n${s}\n@endditaa`, 9)
         )
         return `${serverAddress}/${zippedCode}`
       }
