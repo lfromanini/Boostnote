@@ -118,7 +118,6 @@ function data (state = defaultDataMap(), action) {
 
         // If storage chanced, origin key must be discarded
         if (originKey !== uniqueKey) {
-          console.log('diffrent storage')
           // From isStarred
           if (originNote.isStarred) {
             state.starredSet = new Set(state.starredSet)
