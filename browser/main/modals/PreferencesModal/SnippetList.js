@@ -22,7 +22,7 @@ class SnippetList extends React.Component {
   reloadSnippetList () {
     dataApi.fetchSnippet().then(snippets => {
       this.setState({snippets})
-      this.props.onSnippetSelect(snippets[0])
+      this.props.onSnippetSelect(this.props.currentSnippet)
     })
   }
 
@@ -55,7 +55,11 @@ class SnippetList extends React.Component {
 
   defineSnippetStyleName (snippet) {
     const { currentSnippet } = this.props
-    if (currentSnippet == null) return
+
+    if (currentSnippet == null) {
+      return 'snippet-item'
+    }
+
     if (currentSnippet.id === snippet.id) {
       return 'snippet-item-selected'
     } else {

@@ -16,20 +16,26 @@ export const DEFAULT_CONFIG = {
   isSideNavFolded: false,
   listWidth: 280,
   navWidth: 200,
-  sortBy: 'UPDATED_AT', // 'CREATED_AT', 'UPDATED_AT', 'APLHABETICAL'
+  sortBy: {
+    default: 'UPDATED_AT' // 'CREATED_AT', 'UPDATED_AT', 'APLHABETICAL'
+  },
   sortTagsBy: 'ALPHABETICAL', // 'ALPHABETICAL', 'COUNTER'
   listStyle: 'DEFAULT', // 'DEFAULT', 'SMALL'
   amaEnabled: true,
   hotkey: {
     toggleMain: OSX ? 'Command + Alt + L' : 'Super + Alt + E',
-    toggleMode: OSX ? 'Command + M' : 'Ctrl + M'
+    toggleMode: OSX ? 'Command + Alt + M' : 'Ctrl + M',
+    deleteNote: OSX ? 'Command + Shift + Backspace' : 'Ctrl + Shift + Backspace',
+    pasteSmartly: OSX ? 'Command + Shift + V' : 'Ctrl + Shift + V',
+    toggleMenuBar: 'Alt'
   },
   ui: {
     language: 'en',
     theme: 'default',
     showCopyNotification: true,
     disableDirectWrite: false,
-    defaultNote: 'ALWAYS_ASK' // 'ALWAYS_ASK', 'SNIPPET_NOTE', 'MARKDOWN_NOTE'
+    defaultNote: 'ALWAYS_ASK', // 'ALWAYS_ASK', 'SNIPPET_NOTE', 'MARKDOWN_NOTE'
+    showMenuBar: false
   },
   editor: {
     theme: 'base16-light',
@@ -41,10 +47,19 @@ export const DEFAULT_CONFIG = {
     enableRulers: false,
     rulers: [80, 120],
     displayLineNumbers: true,
-    switchPreview: 'BLUR', // Available value: RIGHTCLICK, BLUR
+    matchingPairs: '()[]{}\'\'""$$**``',
+    matchingTriples: '```"""\'\'\'',
+    explodingPairs: '[]{}``$$',
+    switchPreview: 'BLUR', // 'BLUR', 'DBL_CLICK', 'RIGHTCLICK'
+    delfaultStatus: 'PREVIEW', // 'PREVIEW', 'CODE'
     scrollPastEnd: false,
-    type: 'SPLIT',
-    fetchUrlTitle: true
+    type: 'SPLIT', // 'SPLIT', 'EDITOR_PREVIEW'
+    fetchUrlTitle: true,
+    enableTableEditor: false,
+    enableFrontMatterTitle: true,
+    frontMatterTitleField: 'title',
+    spellcheck: false,
+    enableSmartPaste: false
   },
   preview: {
     fontSize: '14',
@@ -57,12 +72,14 @@ export const DEFAULT_CONFIG = {
     latexBlockClose: '$$',
     plantUMLServerAddress: 'http://www.plantuml.com/plantuml',
     scrollPastEnd: false,
+    scrollSync: true,
     smartQuotes: true,
     breaks: true,
     smartArrows: false,
     allowCustomCSS: false,
     customCSS: '',
-    sanitize: 'STRICT' // 'STRICT', 'ALLOW_STYLES', 'NONE'
+    sanitize: 'STRICT', // 'STRICT', 'ALLOW_STYLES', 'NONE'
+    lineThroughCheckbox: true
   },
   blog: {
     type: 'wordpress', // Available value: wordpress, add more types in the future plz
@@ -71,7 +88,8 @@ export const DEFAULT_CONFIG = {
     token: '',
     username: '',
     password: ''
-  }
+  },
+  coloredTags: {}
 }
 
 function validate (config) {
@@ -144,6 +162,8 @@ function set (updates) {
     document.body.setAttribute('data-theme', 'solarized-dark')
   } else if (newConfig.ui.theme === 'monokai') {
     document.body.setAttribute('data-theme', 'monokai')
+  } else if (newConfig.ui.theme === 'dracula') {
+    document.body.setAttribute('data-theme', 'dracula')
   } else {
     document.body.setAttribute('data-theme', 'default')
   }
@@ -192,6 +212,7 @@ function rewriteHotkey (config) {
   const keys = [...Object.keys(config.hotkey)]
   keys.forEach(key => {
     config.hotkey[key] = config.hotkey[key].replace(/Cmd/g, 'Command')
+    config.hotkey[key] = config.hotkey[key].replace(/Opt\s/g, 'Option ')
   })
   return config
 }
