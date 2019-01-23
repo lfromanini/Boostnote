@@ -30,11 +30,14 @@ import { getTodoPercentageOfCompleted } from 'browser/lib/getTodoStatus'
 import striptags from 'striptags'
 import { confirmDeleteNote } from 'browser/lib/confirmDeleteNote'
 import markdownToc from 'browser/lib/markdown-toc-generator'
+import store from 'browser/main/store'
+import HistoryButton from './HistoryButton'
+import i18n from 'browser/lib/i18n'
 
 class MarkdownNoteDetail extends React.Component {
   constructor (props) {
     super(props)
-
+    this.props.data.backStacks.present = {title: this.props.note.title, hash: this.props.note.key}
     this.state = {
       isMovingNote: false,
       note: Object.assign({
@@ -45,11 +48,14 @@ class MarkdownNoteDetail extends React.Component {
       isLockButtonShown: props.config.editor.type !== 'SPLIT',
       isLocked: false,
       editorType: props.config.editor.type,
-      switchPreview: props.config.editor.switchPreview
+      switchPreview: props.config.editor.switchPreview,
+      backStack: this.props.data.backStacks,
+      isBackActive: false,
+      isForwardActive: false,
+      history: []
     }
 
     this.dispatchTimer = null
-
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
     this.generateToc = () => this.handleGenerateToc()
   }
@@ -59,6 +65,10 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   componentDidMount () {
+    this.setState({
+      backStack: this.undoable('Default')
+    })
+    this.historyChecks()
     ee.on('topbar:togglelockbutton', this.toggleLockButton)
     ee.on('topbar:togglemodebutton', () => {
       const reversedType = this.state.editorType === 'SPLIT' ? 'EDITOR_PREVIEW' : 'SPLIT'
@@ -80,12 +90,20 @@ class MarkdownNoteDetail extends React.Component {
         note: Object.assign({linesHighlighted: []}, nextProps.note)
       }, () => {
         this.refs.content.reload()
+        this.setState({
+          backStack: this.undoable('Default')
+        })
+        this.historyChecks()
         if (this.refs.tags) this.refs.tags.reset()
       })
     }
   }
 
   componentWillUnmount () {
+    store.dispatch({
+      type: 'BACKSTACK_UPDATE',
+      backStacks: this.state.backStack
+    })
     ee.off('topbar:togglelockbutton', this.toggleLockButton)
     ee.off('code:generate-toc', this.generateToc)
     if (this.saveQueue != null) this.saveNow()
@@ -102,6 +120,124 @@ class MarkdownNoteDetail extends React.Component {
     note.content = this.refs.content.value
     note.title = markdown.strip(striptags(findNoteTitle(note.content, this.props.config.editor.enableFrontMatterTitle, this.props.config.editor.frontMatterTitleField)))
     this.updateNote(note)
+  }
+
+  historyChecks () {
+    var back = this.state.backStack
+    var unique = []
+    var historyNow = []
+    // var pobj = {title: this.state.note.title, hash: this.state.note.key}
+    // unique.push(pobj.hash) && historyNow.push(pobj)
+    back.past.forEach(function (obj) {
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && historyNow.push(obj)
+    })
+    back.future.forEach(function (obj) {
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && historyNow.push(obj)
+    })
+    this.setState({
+      history: historyNow
+    })
+    if (back.past.length > 10) {
+      back.past.splice(0, 1)
+      this.setState({
+        backStack: back
+      })
+    }
+    if (back.future.length > 10) {
+      back.future.splice(0, 1)
+      this.setState({ backStack: back })
+    }
+    if (back.past.length) {
+      if (!this.state.isBackActive) {
+        this.setState({ isBackActive: true })
+      }
+    } else {
+      if (this.state.isBackActive) {
+        this.setState({ isBackActive: false })
+      }
+    }
+    if (back.future.length) {
+      if (!this.state.isForwardActive) {
+        this.setState({ isForwardActive: true })
+      }
+    } else {
+      if (this.state.isForwardActive) {
+        this.setState({ isForwardActive: false })
+      }
+    }
+    console.log(this.state.backStack)
+    console.log(this.state.history)
+  }
+
+  handleBackwardButtonClick () {
+    this.setState({
+      backStack: this.undoable('BACKWARD')
+    })
+  }
+
+  handleForwardButtonClick () {
+    this.setState({
+      backStack: this.undoable('FORWARD')
+    })
+  }
+
+  undoable (action) {
+    // this.historyChecks()
+    var { past, present, future } = this.state.backStack
+    switch (action) {
+      case 'BACKWARD':
+        console.log('Backward')
+        if (past.length) {
+          var previous = past.pop()
+          if (previous.hash === present.hash) {
+            previous = past.pop()
+          }
+          const newPast = past
+          ee.emit('list:jump', previous.hash)
+          return {
+            past: newPast,
+            present: previous,
+            future: [...future, present]
+          }
+        }
+        break
+      case 'FORWARD':
+        console.log('Forward')
+        if (future.length) {
+          var next = future.pop()
+          if (next.hash === present.hash) {
+            next = future.pop()
+          }
+          const newFuture = future
+          ee.emit('list:jump', next.hash)
+          return {
+            past: [...past, present],
+            present: next,
+            future: newFuture
+          }
+        }
+        break
+      case 'Default':
+        console.log('Default')
+        const newPresent = {title: this.state.note.title, hash: this.state.note.key}
+        if (present.hash === newPresent.hash) {
+          return {
+            past: past,
+            present: newPresent,
+            future: future
+          }
+        }
+        return {
+          past: [...past, present],
+          present: newPresent,
+          future: future
+        }
+    }
+    return {
+      past: past,
+      present: present,
+      future: future
+    }
   }
 
   updateNote (note) {
@@ -263,7 +399,7 @@ class MarkdownNoteDetail extends React.Component {
     }
   }
 
-  handleUndoButtonClick (e) {
+  handleRestoreButtonClick (e) {
     const { note } = this.state
 
     note.isTrashed = false
@@ -317,6 +453,17 @@ class MarkdownNoteDetail extends React.Component {
   handleInfoButtonClick (e) {
     const infoPanel = document.querySelector('.infoPanel')
     if (infoPanel.style) infoPanel.style.display = infoPanel.style.display === 'none' ? 'inline' : 'none'
+  }
+
+  handleHistButtonClick (e) {
+    const historyMenu = document.querySelector('.historymenu')
+    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
+  }
+
+  handleHistMenuClick (e, note) {
+    const historyMenu = document.querySelector('.historymenu')
+    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
+    ee.emit('list:jump', note.hash)
   }
 
   print (e) {
@@ -387,6 +534,44 @@ class MarkdownNoteDetail extends React.Component {
     }
   }
 
+  renderHistory () {
+    return <div>
+      <button
+        className='historyButton'
+        styleName='control-historyButton'
+        onClick={(e) => this.handleHistButtonClick(e)}>
+        <img styleName='icon'
+          src={this.state.backStack.past.length || this.state.backStack.future.length
+        ? '../resources/icon/history-green.svg' : '../resources/icon/history-dark.svg'}
+      />
+        <span styleName='tooltip'>{i18n.__('Show History')}</span>
+      </button>
+      <div className='historymenu' style={{display: 'none', cursor: 'pointer'}} styleName='control-historyMenu'>
+        <div>
+          {(() => {
+            if (!this.state.backStack.past.length && !this.state.backStack.future.length) {
+              return (
+                <div><p>No History</p></div>
+              )
+            } else {
+              return (
+                this.state.history.map(x =>
+                  <div key={x.hash}>
+                    <p styleName={this.state.note.key === x.hash
+                      ? 'control-activeMenuButton' : 'control-menuButton'}
+                      onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title === ''
+                      ? 'Empty Note' : x.title }
+                    </p>
+                    <hr />
+                  </div>)
+              )
+            }
+          })()}
+        </div>
+      </div>
+    </div>
+  }
+
   render () {
     const { data, location, config } = this.props
     const { note, editorType } = this.state
@@ -403,10 +588,9 @@ class MarkdownNoteDetail extends React.Component {
       })
     })
     const currentOption = options.filter((option) => option.storage.key === storageKey && option.folder.key === folderKey)[0]
-
     const trashTopBar = <div styleName='info'>
       <div styleName='info-left'>
-        <RestoreButton onClick={(e) => this.handleUndoButtonClick(e)} />
+        <RestoreButton onClick={(e) => this.handleRestoreButtonClick(e)} />
       </div>
       <div styleName='info-right'>
         <PermanentDeleteButton onClick={(e) => this.handleTrashButtonClick(e)} />
@@ -424,7 +608,6 @@ class MarkdownNoteDetail extends React.Component {
         />
       </div>
     </div>
-
     const detailTopBar = <div styleName='info'>
       <div styleName='info-left'>
         <div styleName='info-left-top'>
@@ -435,7 +618,6 @@ class MarkdownNoteDetail extends React.Component {
             onChange={(e) => this.handleFolderChange(e)}
           />
         </div>
-
         <TagSelect
           ref='tags'
           value={this.state.note.tags}
@@ -447,7 +629,22 @@ class MarkdownNoteDetail extends React.Component {
         />
         <TodoListPercentage onClearCheckboxClick={(e) => this.handleClearTodo(e)} percentageOfTodo={getTodoPercentageOfCompleted(note.content)} />
       </div>
-      <div styleName='info-right'>
+      <div styleName='info-right' >
+        <HistoryButton
+          onClick={(e) => this.handleBackwardButtonClick(e)}
+          svg_src={this.state.isBackActive
+              ? '../resources/icon/left-green.svg'
+              : '../resources/icon/left-dark.svg'}
+          tooltip='Backward'
+          />
+        {this.renderHistory()}
+        <HistoryButton
+          onClick={(e) => this.handleForwardButtonClick(e)}
+          svg_src={this.state.isForwardActive
+                ? '../resources/icon/right-green.svg'
+                : '../resources/icon/right-dark.svg'}
+          tooltip='Forward'
+        />
         <ToggleModeButton onClick={(e) => this.handleSwitchMode(e)} editorType={editorType} />
         <StarButton
           onClick={(e) => this.handleStarButtonClick(e)}

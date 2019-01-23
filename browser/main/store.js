@@ -12,7 +12,12 @@ function defaultDataMap () {
     storageNoteMap: new Map(),
     folderNoteMap: new Map(),
     tagNoteMap: new Map(),
-    trashedSet: new Set()
+    trashedSet: new Set(),
+    backStacks: {
+      past: [],
+      present: Object(),
+      future: []
+    }
   }
 }
 
@@ -353,6 +358,10 @@ function data (state = defaultDataMap(), action) {
       state.storageMap = new Map(state.storageMap)
       action.storage.isOpen = action.isOpen
       state.storageMap.set(action.storage.key, action.storage)
+      return state
+    case 'BACKSTACK_UPDATE':
+      state = Object.assign({}, state)
+      state.backStacks = action.backStacks
       return state
   }
   return state
