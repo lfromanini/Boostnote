@@ -6,6 +6,7 @@ import _ from 'lodash'
 import ee from 'browser/main/lib/eventEmitter'
 import NewNoteButton from 'browser/main/NewNoteButton'
 import i18n from 'browser/lib/i18n'
+import debounce from 'lodash/debounce'
 
 class TopBar extends React.Component {
   constructor (props) {
@@ -25,9 +26,21 @@ class TopBar extends React.Component {
     }
 
     this.codeInitHandler = this.handleCodeInit.bind(this)
+
+    this.updateKeyword = debounce(this.updateKeyword, 1000 / 60, {
+      maxWait: 1000 / 8
+    })
   }
 
   componentDidMount () {
+    const { params } = this.props
+    const searchWord = params.searchword
+    if (searchWord !== undefined) {
+      this.setState({
+        search: searchWord,
+        isSearching: true
+      })
+    }
     ee.on('top:focus-search', this.focusSearchHandler)
     ee.on('code:init', this.codeInitHandler)
   }
@@ -86,7 +99,6 @@ class TopBar extends React.Component {
   }
 
   handleKeyUp (e) {
-    const { router } = this.context
     // reset states
     this.setState({
       isConfirmTranslation: false
@@ -97,21 +109,22 @@ class TopBar extends React.Component {
       this.setState({
         isConfirmTranslation: true
       })
-      router.push('/searched')
-      this.setState({
-        search: this.refs.searchInput.value
-      })
+      const keyword = this.refs.searchInput.value
+      this.updateKeyword(keyword)
     }
   }
 
   handleSearchChange (e) {
-    const { router } = this.context
-    const keyword = this.refs.searchInput.value
     if (this.state.isAlphabet || this.state.isConfirmTranslation) {
-      router.push('/searched')
+      const keyword = this.refs.searchInput.value
+      this.updateKeyword(keyword)
     } else {
       e.preventDefault()
     }
+  }
+
+  updateKeyword (keyword) {
+    this.context.router.push(`/searched/${encodeURIComponent(keyword)}`)
     this.setState({
       search: keyword
     })
@@ -147,8 +160,7 @@ class TopBar extends React.Component {
     if (this.state.isSearching) {
       el.blur()
     } else {
-      el.focus()
-      el.setSelectionRange(0, el.value.length)
+      el.select()
     }
   }
 

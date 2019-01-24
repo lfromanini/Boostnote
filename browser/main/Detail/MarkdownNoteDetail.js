@@ -28,24 +28,36 @@ import InfoPanelTrashed from './InfoPanelTrashed'
 import { formatDate } from 'browser/lib/date-formatter'
 import { getTodoPercentageOfCompleted } from 'browser/lib/getTodoStatus'
 import striptags from 'striptags'
+import { confirmDeleteNote } from 'browser/lib/confirmDeleteNote'
+import markdownToc from 'browser/lib/markdown-toc-generator'
+import store from 'browser/main/store'
+import HistoryButton from './HistoryButton'
+import i18n from 'browser/lib/i18n'
 
 class MarkdownNoteDetail extends React.Component {
   constructor (props) {
     super(props)
-
+    this.props.data.backStacks.present = {title: this.props.note.title, hash: this.props.note.key}
     this.state = {
       isMovingNote: false,
       note: Object.assign({
         title: '',
-        content: ''
+        content: '',
+        linesHighlighted: []
       }, props.note),
-      isLockButtonShown: false,
+      isLockButtonShown: props.config.editor.type !== 'SPLIT',
       isLocked: false,
-      editorType: props.config.editor.type
+      editorType: props.config.editor.type,
+      switchPreview: props.config.editor.switchPreview,
+      backStack: this.props.data.backStacks,
+      isBackActive: false,
+      isForwardActive: false,
+      history: []
     }
-    this.dispatchTimer = null
 
+    this.dispatchTimer = null
     this.toggleLockButton = this.handleToggleLockButton.bind(this)
+    this.generateToc = () => this.handleGenerateToc()
   }
 
   focus () {
@@ -53,23 +65,47 @@ class MarkdownNoteDetail extends React.Component {
   }
 
   componentDidMount () {
+    this.setState({
+      backStack: this.undoable('Default')
+    })
+    this.historyChecks()
     ee.on('topbar:togglelockbutton', this.toggleLockButton)
+    ee.on('topbar:togglemodebutton', () => {
+      const reversedType = this.state.editorType === 'SPLIT' ? 'EDITOR_PREVIEW' : 'SPLIT'
+      this.handleSwitchMode(reversedType)
+    })
+    ee.on('hotkey:deletenote', this.handleDeleteNote.bind(this))
+    ee.on('code:generate-toc', this.generateToc)
+
+    // Focus content if using blur or double click
+    if (this.state.switchPreview === 'BLUR' || this.state.switchPreview === 'DBL_CLICK') this.focus()
   }
 
   componentWillReceiveProps (nextProps) {
-    if (nextProps.note.key !== this.props.note.key && !this.isMovingNote) {
+    const isNewNote = nextProps.note.key !== this.props.note.key
+    const hasDeletedTags = nextProps.note.tags.length < this.props.note.tags.length
+    if (!this.state.isMovingNote && (isNewNote || hasDeletedTags)) {
       if (this.saveQueue != null) this.saveNow()
       this.setState({
-        note: Object.assign({}, nextProps.note)
+        note: Object.assign({linesHighlighted: []}, nextProps.note)
       }, () => {
         this.refs.content.reload()
+        this.setState({
+          backStack: this.undoable('Default')
+        })
+        this.historyChecks()
         if (this.refs.tags) this.refs.tags.reset()
       })
     }
   }
 
   componentWillUnmount () {
+    store.dispatch({
+      type: 'BACKSTACK_UPDATE',
+      backStacks: this.state.backStack
+    })
     ee.off('topbar:togglelockbutton', this.toggleLockButton)
+    ee.off('code:generate-toc', this.generateToc)
     if (this.saveQueue != null) this.saveNow()
   }
 
@@ -82,8 +118,126 @@ class MarkdownNoteDetail extends React.Component {
   handleUpdateContent () {
     const { note } = this.state
     note.content = this.refs.content.value
-    note.title = markdown.strip(striptags(findNoteTitle(note.content)))
+    note.title = markdown.strip(striptags(findNoteTitle(note.content, this.props.config.editor.enableFrontMatterTitle, this.props.config.editor.frontMatterTitleField)))
     this.updateNote(note)
+  }
+
+  historyChecks () {
+    var back = this.state.backStack
+    var unique = []
+    var historyNow = []
+    // var pobj = {title: this.state.note.title, hash: this.state.note.key}
+    // unique.push(pobj.hash) && historyNow.push(pobj)
+    back.past.forEach(function (obj) {
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && historyNow.push(obj)
+    })
+    back.future.forEach(function (obj) {
+      unique.indexOf(obj.hash) === -1 && unique.push(obj.hash) && historyNow.push(obj)
+    })
+    this.setState({
+      history: historyNow
+    })
+    if (back.past.length > 10) {
+      back.past.splice(0, 1)
+      this.setState({
+        backStack: back
+      })
+    }
+    if (back.future.length > 10) {
+      back.future.splice(0, 1)
+      this.setState({ backStack: back })
+    }
+    if (back.past.length) {
+      if (!this.state.isBackActive) {
+        this.setState({ isBackActive: true })
+      }
+    } else {
+      if (this.state.isBackActive) {
+        this.setState({ isBackActive: false })
+      }
+    }
+    if (back.future.length) {
+      if (!this.state.isForwardActive) {
+        this.setState({ isForwardActive: true })
+      }
+    } else {
+      if (this.state.isForwardActive) {
+        this.setState({ isForwardActive: false })
+      }
+    }
+    console.log(this.state.backStack)
+    console.log(this.state.history)
+  }
+
+  handleBackwardButtonClick () {
+    this.setState({
+      backStack: this.undoable('BACKWARD')
+    })
+  }
+
+  handleForwardButtonClick () {
+    this.setState({
+      backStack: this.undoable('FORWARD')
+    })
+  }
+
+  undoable (action) {
+    // this.historyChecks()
+    var { past, present, future } = this.state.backStack
+    switch (action) {
+      case 'BACKWARD':
+        console.log('Backward')
+        if (past.length) {
+          var previous = past.pop()
+          if (previous.hash === present.hash) {
+            previous = past.pop()
+          }
+          const newPast = past
+          ee.emit('list:jump', previous.hash)
+          return {
+            past: newPast,
+            present: previous,
+            future: [...future, present]
+          }
+        }
+        break
+      case 'FORWARD':
+        console.log('Forward')
+        if (future.length) {
+          var next = future.pop()
+          if (next.hash === present.hash) {
+            next = future.pop()
+          }
+          const newFuture = future
+          ee.emit('list:jump', next.hash)
+          return {
+            past: [...past, present],
+            present: next,
+            future: newFuture
+          }
+        }
+        break
+      case 'Default':
+        console.log('Default')
+        const newPresent = {title: this.state.note.title, hash: this.state.note.key}
+        if (present.hash === newPresent.hash) {
+          return {
+            past: past,
+            present: newPresent,
+            future: future
+          }
+        }
+        return {
+          past: [...past, present],
+          present: newPresent,
+          future: future
+        }
+    }
+    return {
+      past: past,
+      present: present,
+      future: future
+    }
   }
 
   updateNote (note) {
@@ -178,13 +332,43 @@ class MarkdownNoteDetail extends React.Component {
     ee.emit('export:save-html')
   }
 
+  handleKeyDown (e) {
+    switch (e.keyCode) {
+      // tab key
+      case 9:
+        if (e.ctrlKey && !e.shiftKey) {
+          e.preventDefault()
+          this.jumpNextTab()
+        } else if (e.ctrlKey && e.shiftKey) {
+          e.preventDefault()
+          this.jumpPrevTab()
+        } else if (!e.ctrlKey && !e.shiftKey && e.target === this.refs.description) {
+          e.preventDefault()
+          this.focusEditor()
+        }
+        break
+      // I key
+      case 73:
+        {
+          const isSuper = global.process.platform === 'darwin'
+            ? e.metaKey
+            : e.ctrlKey
+          if (isSuper) {
+            e.preventDefault()
+            this.handleInfoButtonClick(e)
+          }
+        }
+        break
+    }
+  }
+
   handleTrashButtonClick (e) {
     const { note } = this.state
     const { isTrashed } = note
-    const { confirmDeletion } = this.props
+    const { confirmDeletion } = this.props.config.ui
 
     if (isTrashed) {
-      if (confirmDeletion(true)) {
+      if (confirmDeleteNote(confirmDeletion, true)) {
         const {note, dispatch} = this.props
         dataApi
           .deleteNote(note.storage, note.key)
@@ -201,7 +385,7 @@ class MarkdownNoteDetail extends React.Component {
           .then(() => ee.emit('list:next'))
       }
     } else {
-      if (confirmDeletion()) {
+      if (confirmDeleteNote(confirmDeletion, false)) {
         note.isTrashed = true
 
         this.setState({
@@ -215,7 +399,7 @@ class MarkdownNoteDetail extends React.Component {
     }
   }
 
-  handleUndoButtonClick (e) {
+  handleRestoreButtonClick (e) {
     const { note } = this.state
 
     note.isTrashed = false
@@ -250,11 +434,16 @@ class MarkdownNoteDetail extends React.Component {
 
   handleToggleLockButton (event, noteStatus) {
     // first argument event is not used
-    if (this.props.config.editor.switchPreview === 'BLUR' && noteStatus === 'CODE') {
+    if (noteStatus === 'CODE') {
       this.setState({isLockButtonShown: true})
     } else {
       this.setState({isLockButtonShown: false})
     }
+  }
+
+  handleGenerateToc () {
+    const editor = this.refs.content.refs.code.editor
+    markdownToc.generateInEditor(editor)
   }
 
   handleFocus (e) {
@@ -266,21 +455,58 @@ class MarkdownNoteDetail extends React.Component {
     if (infoPanel.style) infoPanel.style.display = infoPanel.style.display === 'none' ? 'inline' : 'none'
   }
 
+  handleHistButtonClick (e) {
+    const historyMenu = document.querySelector('.historymenu')
+    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
+  }
+
+  handleHistMenuClick (e, note) {
+    const historyMenu = document.querySelector('.historymenu')
+    if (historyMenu.style) historyMenu.style.display = historyMenu.style.display === 'none' ? 'inline' : 'none'
+    ee.emit('list:jump', note.hash)
+  }
+
   print (e) {
     ee.emit('print')
   }
 
   handleSwitchMode (type) {
-    this.setState({ editorType: type }, () => {
+    // If in split mode, hide the lock button
+    this.setState({ editorType: type, isLockButtonShown: !(type === 'SPLIT') }, () => {
+      this.focus()
       const newConfig = Object.assign({}, this.props.config)
       newConfig.editor.type = type
       ConfigManager.set(newConfig)
     })
   }
 
+  handleDeleteNote () {
+    this.handleTrashButtonClick()
+  }
+
+  handleClearTodo () {
+    const { note } = this.state
+    const splitted = note.content.split('\n')
+
+    const clearTodoContent = splitted.map((line) => {
+      const trimmedLine = line.trim()
+      if (trimmedLine.match(/\[x\]/i)) {
+        return line.replace(/\[x\]/i, '[ ]')
+      } else {
+        return line
+      }
+    }).join('\n')
+
+    note.content = clearTodoContent
+    this.refs.content.setValue(note.content)
+
+    this.updateNote(note)
+  }
+
   renderEditor () {
     const { config, ignorePreviewPointerEvents } = this.props
     const { note } = this.state
+
     if (this.state.editorType === 'EDITOR_PREVIEW') {
       return <MarkdownEditor
         ref='content'
@@ -288,7 +514,10 @@ class MarkdownNoteDetail extends React.Component {
         config={config}
         value={note.content}
         storageKey={note.storage}
+        noteKey={note.key}
+        linesHighlighted={note.linesHighlighted}
         onChange={this.handleUpdateContent.bind(this)}
+        isLocked={this.state.isLocked}
         ignorePreviewPointerEvents={ignorePreviewPointerEvents}
       />
     } else {
@@ -297,14 +526,54 @@ class MarkdownNoteDetail extends React.Component {
         config={config}
         value={note.content}
         storageKey={note.storage}
+        noteKey={note.key}
+        linesHighlighted={note.linesHighlighted}
         onChange={this.handleUpdateContent.bind(this)}
         ignorePreviewPointerEvents={ignorePreviewPointerEvents}
       />
     }
   }
 
+  renderHistory () {
+    return <div>
+      <button
+        className='historyButton'
+        styleName='control-historyButton'
+        onClick={(e) => this.handleHistButtonClick(e)}>
+        <img styleName='icon'
+          src={this.state.backStack.past.length || this.state.backStack.future.length
+        ? '../resources/icon/history-green.svg' : '../resources/icon/history-dark.svg'}
+      />
+        <span styleName='tooltip'>{i18n.__('Show History')}</span>
+      </button>
+      <div className='historymenu' style={{display: 'none', cursor: 'pointer'}} styleName='control-historyMenu'>
+        <div>
+          {(() => {
+            if (!this.state.backStack.past.length && !this.state.backStack.future.length) {
+              return (
+                <div><p>No History</p></div>
+              )
+            } else {
+              return (
+                this.state.history.map(x =>
+                  <div key={x.hash}>
+                    <p styleName={this.state.note.key === x.hash
+                      ? 'control-activeMenuButton' : 'control-menuButton'}
+                      onClick={(e) => this.handleHistMenuClick(e, x)}>{x.title === ''
+                      ? 'Empty Note' : x.title }
+                    </p>
+                    <hr />
+                  </div>)
+              )
+            }
+          })()}
+        </div>
+      </div>
+    </div>
+  }
+
   render () {
-    const { data, location } = this.props
+    const { data, location, config } = this.props
     const { note, editorType } = this.state
     const storageKey = note.storage
     const folderKey = note.folder
@@ -319,10 +588,9 @@ class MarkdownNoteDetail extends React.Component {
       })
     })
     const currentOption = options.filter((option) => option.storage.key === storageKey && option.folder.key === folderKey)[0]
-
     const trashTopBar = <div styleName='info'>
       <div styleName='info-left'>
-        <RestoreButton onClick={(e) => this.handleUndoButtonClick(e)} />
+        <RestoreButton onClick={(e) => this.handleRestoreButtonClick(e)} />
       </div>
       <div styleName='info-right'>
         <PermanentDeleteButton onClick={(e) => this.handleTrashButtonClick(e)} />
@@ -340,7 +608,6 @@ class MarkdownNoteDetail extends React.Component {
         />
       </div>
     </div>
-
     const detailTopBar = <div styleName='info'>
       <div styleName='info-left'>
         <div styleName='info-left-top'>
@@ -351,15 +618,33 @@ class MarkdownNoteDetail extends React.Component {
             onChange={(e) => this.handleFolderChange(e)}
           />
         </div>
-
         <TagSelect
           ref='tags'
           value={this.state.note.tags}
+          saveTagsAlphabetically={config.ui.saveTagsAlphabetically}
+          showTagsAlphabetically={config.ui.showTagsAlphabetically}
+          data={data}
           onChange={this.handleUpdateTag.bind(this)}
+          coloredTags={config.coloredTags}
         />
-        <TodoListPercentage percentageOfTodo={getTodoPercentageOfCompleted(note.content)} />
+        <TodoListPercentage onClearCheckboxClick={(e) => this.handleClearTodo(e)} percentageOfTodo={getTodoPercentageOfCompleted(note.content)} />
       </div>
-      <div styleName='info-right'>
+      <div styleName='info-right' >
+        <HistoryButton
+          onClick={(e) => this.handleBackwardButtonClick(e)}
+          svg_src={this.state.isBackActive
+              ? '../resources/icon/left-green.svg'
+              : '../resources/icon/left-dark.svg'}
+          tooltip='Backward'
+          />
+        {this.renderHistory()}
+        <HistoryButton
+          onClick={(e) => this.handleForwardButtonClick(e)}
+          svg_src={this.state.isForwardActive
+                ? '../resources/icon/right-green.svg'
+                : '../resources/icon/right-dark.svg'}
+          tooltip='Forward'
+        />
         <ToggleModeButton onClick={(e) => this.handleSwitchMode(e)} editorType={editorType} />
         <StarButton
           onClick={(e) => this.handleStarButtonClick(e)}
@@ -411,6 +696,7 @@ class MarkdownNoteDetail extends React.Component {
       <div className='NoteDetail'
         style={this.props.style}
         styleName='root'
+        onKeyDown={(e) => this.handleKeyDown(e)}
       >
 
         {location.pathname === '/trashed' ? trashTopBar : detailTopBar}
@@ -437,8 +723,7 @@ MarkdownNoteDetail.propTypes = {
   style: PropTypes.shape({
     left: PropTypes.number
   }),
-  ignorePreviewPointerEvents: PropTypes.bool,
-  confirmDeletion: PropTypes.bool.isRequired
+  ignorePreviewPointerEvents: PropTypes.bool
 }
 
 export default CSSModules(MarkdownNoteDetail, styles)

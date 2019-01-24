@@ -34,3 +34,37 @@ test('Markdown.render() should text with quotes correctly', t => {
   const renderedNonSmartQuotes = newmd.render(markdownFixtures.smartQuotes)
   t.snapshot(renderedNonSmartQuotes)
 })
+
+test('Markdown.render() should render line breaks correctly', t => {
+  const renderedBreaks = md.render(markdownFixtures.breaks)
+  t.snapshot(renderedBreaks)
+
+  const newmd = new Markdown({ breaks: false })
+  const renderedNonBreaks = newmd.render(markdownFixtures.breaks)
+  t.snapshot(renderedNonBreaks)
+})
+
+test('Markdown.render() should renders abbrevations correctly', t => {
+  const rendered = md.render(markdownFixtures.abbrevations)
+  t.snapshot(rendered)
+})
+
+test('Markdown.render() should renders sub correctly', t => {
+  const rendered = md.render(markdownFixtures.subTexts)
+  t.snapshot(rendered)
+})
+
+test('Markdown.render() should renders sup correctly', t => {
+  const rendered = md.render(markdownFixtures.supTexts)
+  t.snapshot(rendered)
+})
+
+test('Markdown.render() should renders definition lists correctly', t => {
+  const rendered = md.render(markdownFixtures.deflists)
+  t.snapshot(rendered)
+})
+
+test('Markdown.render() should render shortcuts correctly', t => {
+  const rendered = md.render(markdownFixtures.shortcuts)
+  t.snapshot(rendered)
+})
